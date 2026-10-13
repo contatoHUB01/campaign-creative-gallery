@@ -1,12 +1,23 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
-import { ArrowDownToLine, ArrowUpRight, Search, SlidersHorizontal, LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, X } from 'lucide-react';
+import { createFileRoute, useRouter } from '@tanstack/react-router';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { ArrowDownToLine, ArrowUpRight, Search, SlidersHorizontal, LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreativeCard } from '@/components/creative-card';
-import { ads, currency, number } from '@/lib/ads';
+import { currency, number } from '@/lib/ads';
+import { metaAdsQueryOptions } from '@/lib/metaApi';
 
 export const Route = createFileRoute('/')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    q: typeof search['q'] === 'string' ? search['q'] : '',
+    status: search['status'] === 'Ativo' || search['status'] === 'Pausado' ? search['status'] : 'Todos',
+    campaign: typeof search['campaign'] === 'string' ? search['campaign'] : 'Todas',
+    sort: search['sort'] === 'clicks' || search['sort'] === 'spent' ? search['sort'] : 'recent',
+  }),
+  loader: async ({ context }) => { await context.queryClient.ensureQueryData(metaAdsQueryOptions); },
+  pendingComponent: () => <div className="flex min-h-screen items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>,
+  errorComponent: ReportError,
+  notFoundComponent: () => <div className="p-10">Relatório não encontrado.</div>,
   head: () => ({ meta: [
     { title: 'Criativos | Criativa — Meta Ads' },
     { name: 'description', content: 'Explore os criativos das campanhas Meta Ads e acompanhe cliques, gastos e status em um relatório visual.' },
@@ -18,17 +29,26 @@ export const Route = createFileRoute('/')({
   component: Index,
 });
 
+function ReportError() {
+  const router = useRouter();
+  return <div className="mx-auto max-w-lg px-6 py-20 text-center" role="alert"><h1 className="text-xl font-semibold">Não foi possível carregar os criativos</h1><p className="mt-3 text-sm text-muted-foreground">Verifique sua sessão, o token privado e as permissões na Meta.</p><Button variant="outline" className="mt-5" onClick={() => router.invalidate()}>Tentar novamente</Button></div>;
+}
+
 function Index() {
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('Todos');
-  const [campaign, setCampaign] = useState('Todas');
-  const [sort, setSort] = useState('recent');
+  const { data: report, isFetching, refetch } = useSuspenseQuery(metaAdsQueryOptions);
+  const ads = report.ads;
+  const { q: search, status, campaign, sort } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const setSearch = (q: string) => { void navigate({ search: previous => ({ ...previous, q }), replace: true }); };
+  const setStatus = (status: string) => { void navigate({ search: previous => ({ ...previous, status }), replace: true }); };
+  const setCampaign = (campaign: string) => { void navigate({ search: previous => ({ ...previous, campaign }), replace: true }); };
+  const setSort = (sort: string) => { void navigate({ search: previous => ({ ...previous, sort }), replace: true }); };
   const campaigns = [...new Set(ads.map(ad => ad.campaign))];
-  const visible = ads.filter(ad => (status === 'Todos' || ad.status === status) && (campaign === 'Todas' || ad.campaign === campaign) && `${ad.title} ${ad.copy} ${ad.campaign}`.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))).sort((a, b) => sort === 'clicks' ? b.clicks - a.clicks : sort === 'spent' ? b.spent - a.spent : a.id - b.id);
+  const visible = ads.filter(ad => (status === 'Todos' || ad.status === status) && (campaign === 'Todas' || ad.campaign === campaign) && `${ad.title} ${ad.copy} ${ad.campaign}`.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))).sort((a, b) => sort === 'clicks' ? b.clicks - a.clicks : sort === 'spent' ? b.spent - a.spent : 0);
   const clicks = visible.reduce((sum, ad) => sum + ad.clicks, 0);
   const spent = visible.reduce((sum, ad) => sum + ad.spent, 0);
   const filtered = search || status !== 'Todos' || campaign !== 'Todas';
-  const reset = () => { setSearch(''); setStatus('Todos'); setCampaign('Todas'); };
+  const reset = () => { void navigate({ search: previous => ({ ...previous, q: '', status: 'Todos', campaign: 'Todas' }), replace: true }); };
   function exportReport() {
     const rows = [['Campanha', 'Título', 'Copy', 'Formato', 'Cliques', 'Valor gasto (BRL)', 'Status'], ...visible.map(ad => [ad.campaign, ad.title, ad.copy, ad.format, String(ad.clicks), ad.spent.toFixed(2), ad.status])];
     const blob = new Blob(['\uFEFF' + rows.map(row => row.map(cell => `"${cell.replaceAll('"', '""')}"`).join(';')).join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -46,9 +66,9 @@ function Index() {
       <main className="mx-auto max-w-[1240px] px-6 pb-12 pt-9 sm:px-10 sm:pt-11">
         <div className="flex flex-wrap items-center justify-between gap-5">
           <div><div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />Visão de criativos</div><h1 className="text-[30px] font-bold leading-tight sm:text-[34px]">Criativos que contam histórias.</h1><p className="mt-3 text-sm text-muted-foreground">Uma visão clara dos seus anúncios e dos resultados de cada ideia.</p></div>
-          <Button variant="outline" className="bg-card" onClick={exportReport}><ArrowDownToLine />Exportar relatório</Button>
+          <Button variant="outline" className="bg-card" onClick={exportReport} disabled={!report.connected || isFetching}><ArrowDownToLine />Exportar relatório</Button>
         </div>
-        <div className="mt-7 flex items-center gap-2 text-[11px] text-muted-foreground"><span className="rounded border border-border bg-card px-2 py-1 font-medium">Dados simulados</span><span>01 – 13 de outubro de 2026</span></div>
+        <div className="mt-7 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span className={`rounded border px-2 py-1 font-medium ${report.connected ? 'api-connected' : 'border-border bg-card'}`}>{report.connected ? 'Ligado à API' : 'API não conectada'}</span>{report.connected && <span>Conteúdo dos criativos · métricas, campanhas e status ainda não consultados</span>}</div>
         <section aria-label="Resumo dos resultados" className="report-summary my-8 border-y border-border py-7">
           {[
             { label: 'Criativos no relatório', value: number(visible.length), icon: LayoutGrid, note: `${visible.filter(ad => ad.status === 'Ativo').length} ativos no período` },
@@ -65,8 +85,10 @@ function Index() {
           <Select value={sort} onValueChange={setSort}><SelectTrigger aria-label="Ordenar criativos" className="h-10 w-[165px] bg-card text-xs"><SlidersHorizontal size={13} /><SelectValue /></SelectTrigger><SelectContent><SelectItem value="recent">Mais recentes</SelectItem><SelectItem value="clicks">Mais cliques</SelectItem><SelectItem value="spent">Maior gasto</SelectItem></SelectContent></Select>
           {filtered && <Button variant="ghost" size="icon" aria-label="Limpar filtros" title="Limpar filtros" onClick={reset}><X /></Button>}
         </div>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{visible.map(ad => <CreativeCard key={ad.id} ad={ad} />)}</div>
-        {visible.length === 0 && <div className="py-20 text-center"><Search className="mx-auto mb-3 text-muted-foreground" size={28} /><h3 className="font-semibold">Nenhum criativo encontrado</h3><p className="mt-2 text-sm text-muted-foreground">Tente outro termo ou ajuste os filtros.</p><Button variant="outline" className="mt-5" onClick={reset}>Limpar filtros</Button></div>}
+        {isFetching && <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>}
+        {!isFetching && report.error && <div className="py-12 text-center" role="alert"><h3 className="font-semibold">Não foi possível carregar os criativos</h3><p className="mt-2 text-sm text-muted-foreground">{report.error}</p><Button variant="outline" className="mt-5" onClick={() => { void refetch(); }}>Tentar novamente</Button></div>}
+        {!isFetching && !report.error && <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{visible.map(ad => <CreativeCard key={ad.id} ad={ad} />)}</div>}
+        {!isFetching && !report.error && visible.length === 0 && <div className="py-20 text-center"><Search className="mx-auto mb-3 text-muted-foreground" size={28} /><h3 className="font-semibold">Nenhum criativo encontrado</h3><p className="mt-2 text-sm text-muted-foreground">{filtered ? 'Tente outro termo ou ajuste os filtros.' : 'A Meta não retornou criativos para esta conta.'}</p>{filtered && <Button variant="outline" className="mt-5" onClick={reset}>Limpar filtros</Button>}</div>}
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5 text-[11px] text-muted-foreground"><span>Exibindo {visible.length} de {ads.length} criativos</span><span className="flex items-center gap-1">Cada ideia, um novo resultado.<ArrowUpRight size={13} className="text-primary" /></span></footer>
       </main>
     </div>

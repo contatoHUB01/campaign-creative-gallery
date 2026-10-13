@@ -166,6 +166,7 @@
 .creative-card:hover img { transform: scale(1.025); }
 .status-badge { position: absolute; top: 14px; left: 14px; display: flex; align-items: center; gap: 6px; border-radius: 5px; padding: 5px 9px; font-size: 11px; font-weight: 600; }
 .status-active { background: var(--status-background); color: var(--success); }
+.api-connected { background: var(--status-background); color: var(--success); border-color: var(--success); }
 .status-paused { background: var(--paused-background); color: var(--muted-foreground); }
 .status-dot { width: 5px; height: 5px; background: currentColor; border-radius: 50%; }
 .platform-badge { position: absolute; bottom: 14px; left: 14px; display: flex; align-items: center; gap: 6px; background: var(--image-label); border-radius: 5px; padding: 6px 9px; font-size: 10px; font-weight: 500; }
