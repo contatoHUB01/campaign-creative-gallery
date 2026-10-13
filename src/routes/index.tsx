@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CreativeCard } from '@/components/creative-card';
 import { currency, number } from '@/lib/ads';
 import { metaAdsQueryOptions } from '@/lib/metaApi';
+import { MetaLogin } from '@/components/meta-login';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -60,7 +62,7 @@ function Index() {
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-6 sm:px-10">
           <div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Sparkles size={21} /></span><span className="text-[23px] font-extrabold">criativa<span className="text-primary">.</span></span><span className="mx-5 hidden h-6 border-l border-border sm:block" /><span className="hidden text-sm font-medium text-muted-foreground sm:block">Relatório de anúncios</span></div>
-          <div className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium"><MetaIcon className="text-primary" size={21} />Meta Ads</div>
+           <div className="flex items-center gap-3">{report.connected && <Button variant="ghost" size="sm" onClick={() => { void supabase.auth.signOut(); }}>Sair</Button>}<div className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium"><MetaIcon className="text-primary" size={21} />Meta Ads</div></div>
         </div>
       </header>
       <main className="mx-auto max-w-[1240px] px-6 pb-12 pt-9 sm:px-10 sm:pt-11">
@@ -68,7 +70,7 @@ function Index() {
           <div><div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />Visão de criativos</div><h1 className="text-[30px] font-bold leading-tight sm:text-[34px]">Criativos que contam histórias.</h1><p className="mt-3 text-sm text-muted-foreground">Uma visão clara dos seus anúncios e dos resultados de cada ideia.</p></div>
           <Button variant="outline" className="bg-card" onClick={exportReport} disabled={!report.connected || isFetching}><ArrowDownToLine />Exportar relatório</Button>
         </div>
-        <div className="mt-7 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span className={`rounded border px-2 py-1 font-medium ${report.connected ? 'api-connected' : 'border-border bg-card'}`}>{report.connected ? 'Ligado à API' : 'API não conectada'}</span>{report.connected && <span>Conteúdo dos criativos · métricas, campanhas e status ainda não consultados</span>}</div>
+        <div className="mt-7 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span className={`rounded border px-2 py-1 font-medium ${report.connected ? 'api-connected' : 'border-border bg-card'}`}>{report.connected ? 'Ligado à API' : 'API não conectada'}</span>{report.connected && <span>Anúncios, campanhas e métricas da Meta</span>}</div>
         <section aria-label="Resumo dos resultados" className="report-summary my-8 border-y border-border py-7">
           {[
             { label: 'Criativos no relatório', value: number(visible.length), icon: LayoutGrid, note: `${visible.filter(ad => ad.status === 'Ativo').length} ativos no período` },
@@ -86,7 +88,8 @@ function Index() {
           {filtered && <Button variant="ghost" size="icon" aria-label="Limpar filtros" title="Limpar filtros" onClick={reset}><X /></Button>}
         </div>
         {isFetching && <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>}
-        {!isFetching && report.error && <div className="py-12 text-center" role="alert"><h3 className="font-semibold">Não foi possível carregar os criativos</h3><p className="mt-2 text-sm text-muted-foreground">{report.error}</p><Button variant="outline" className="mt-5" onClick={() => { void refetch(); }}>Tentar novamente</Button></div>}
+        {!isFetching && report.requiresLogin && <MetaLogin />}
+        {!isFetching && report.error && !report.requiresLogin && <div className="py-12 text-center" role="alert"><h3 className="font-semibold">Não foi possível carregar os criativos</h3><p className="mt-2 text-sm text-muted-foreground">{report.error}</p><Button variant="outline" className="mt-5" onClick={() => { void refetch(); }}>Tentar novamente</Button></div>}
         {!isFetching && !report.error && <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{visible.map(ad => <CreativeCard key={ad.id} ad={ad} />)}</div>}
         {!isFetching && !report.error && visible.length === 0 && <div className="py-20 text-center"><Search className="mx-auto mb-3 text-muted-foreground" size={28} /><h3 className="font-semibold">Nenhum criativo encontrado</h3><p className="mt-2 text-sm text-muted-foreground">{filtered ? 'Tente outro termo ou ajuste os filtros.' : 'A Meta não retornou criativos para esta conta.'}</p>{filtered && <Button variant="outline" className="mt-5" onClick={reset}>Limpar filtros</Button>}</div>}
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5 text-[11px] text-muted-foreground"><span>Exibindo {visible.length} de {ads.length} criativos</span><span className="flex items-center gap-1">Cada ideia, um novo resultado.<ArrowUpRight size={13} className="text-primary" /></span></footer>

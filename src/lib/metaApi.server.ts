@@ -2,16 +2,26 @@ import { z } from 'zod';
 import type { Ad } from './ads';
 
 const creativePage = z.object({
-  data: z.array(z.object({ id: z.string(), name: z.string().optional(), body: z.string().optional(), image_url: z.string().optional() })),
+  data: z.array(z.object({
+    id: z.string(), name: z.string().nullish(), status: z.string().nullish(),
+    campaign: z.object({ name: z.string().nullish() }).nullish(),
+    creative: z.object({ name: z.string().nullish(), body: z.string().nullish(), image_url: z.string().nullish() }).nullish(),
+    insights: z.object({ data: z.array(z.object({ clicks: z.union([z.string(), z.number()]).nullish(), spend: z.union([z.string(), z.number()]).nullish() })) }).nullish(),
+  })),
   paging: z.object({ next: z.string().optional(), cursors: z.object({ after: z.string().optional() }).optional() }).optional(),
 });
+
+function safeNumber(value: string | number | null | undefined): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
 
 export async function readMetaCreatives(accountId: string, accessToken: string): Promise<Ad[]> {
   const rows: Ad[] = [];
   let after: string | undefined;
   for (let page = 0; page < 10; page += 1) {
-    const url = new URL(`https://graph.facebook.com/v26.0/act_${accountId}/adcreatives`);
-    url.searchParams.set('fields', 'id,name,image_url,body');
+    const url = new URL(`https://graph.facebook.com/v26.0/act_${accountId}/ads`);
+    url.searchParams.set('fields', 'id,name,status,campaign{name},creative{name,image_url,body},insights{clicks,spend}');
     url.searchParams.set('limit', '100');
     if (after) url.searchParams.set('after', after);
     const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(30000) });
@@ -27,9 +37,12 @@ export async function readMetaCreatives(accountId: string, accessToken: string):
     }
     const parsed = creativePage.parse(raw);
     rows.push(...parsed.data.map(item => ({
-      id: item.id, campaign: 'Campanha Importada', title: item.name || 'Anúncio sem título',
-      copy: item.body || 'Sem texto descritivo.', imageUrl: item.image_url || '',
-      format: 'Meta Ads', clicks: 0, spent: 0, status: 'Ativo' as const,
+      id: item.id, campaign: item.campaign?.name || 'Sem campanha', title: item.name || item.creative?.name || 'Anúncio sem título',
+      copy: item.creative?.body || 'Sem texto descritivo.', imageUrl: item.creative?.image_url || '',
+      format: 'Meta Ads',
+      clicks: (item.insights?.data ?? []).reduce((total, insight) => total + safeNumber(insight.clicks), 0),
+      spent: (item.insights?.data ?? []).reduce((total, insight) => total + safeNumber(insight.spend), 0),
+      status: item.status === 'ACTIVE' ? 'Ativo' as const : 'Pausado' as const,
     })));
     if (!parsed.paging?.next) return rows;
     after = parsed.paging.cursors?.after;
