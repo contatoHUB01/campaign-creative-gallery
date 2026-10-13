@@ -9,10 +9,10 @@ import { metaAdsQueryOptions } from '@/lib/metaApi';
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
-    q: typeof search.q === 'string' ? search.q : '',
-    status: search.status === 'Ativo' || search.status === 'Pausado' ? search.status : 'Todos',
-    campaign: typeof search.campaign === 'string' ? search.campaign : 'Todas',
-    sort: search.sort === 'clicks' || search.sort === 'spent' ? search.sort : 'recent',
+    q: typeof search['q'] === 'string' ? search['q'] : '',
+    status: search['status'] === 'Ativo' || search['status'] === 'Pausado' ? search['status'] : 'Todos',
+    campaign: typeof search['campaign'] === 'string' ? search['campaign'] : 'Todas',
+    sort: search['sort'] === 'clicks' || search['sort'] === 'spent' ? search['sort'] : 'recent',
   }),
   loader: async ({ context }) => { await context.queryClient.ensureQueryData(metaAdsQueryOptions); },
   pendingComponent: () => <div className="flex min-h-screen items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>,
