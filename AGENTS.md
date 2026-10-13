@@ -8,3 +8,7 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+## Application structure
+- Keep the simulated ad dataset and locale formatters in `src/lib/ads.ts`; this report deliberately works without an external account connection.
+- Render each ad through `CreativeCard`, with all shared visual tokens in `src/styles.css`, so card presentation remains consistent across filters.
