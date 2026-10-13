@@ -3,7 +3,7 @@ import sneakers from '@/assets/sneakers.jpg';
 import coffee from '@/assets/coffee.jpg';
 
 export type Ad = {
-  id: number;
+  id: number | string;
   campaign: string;
   title: string;
   copy: string;
