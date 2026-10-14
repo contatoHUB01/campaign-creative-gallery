@@ -17,31 +17,37 @@ export type Database = {
       campaign_report_links: {
         Row: {
           campaign_name: string
+          configuration: Json
           created_at: string
           created_by: string
-          expires_at: string
+          expires_at: string | null
           id: string
           revoked_at: string | null
+          title: string
           token_hash: string
           updated_at: string
         }
         Insert: {
           campaign_name: string
+          configuration?: Json
           created_at?: string
           created_by: string
-          expires_at: string
+          expires_at?: string | null
           id?: string
           revoked_at?: string | null
+          title: string
           token_hash: string
           updated_at?: string
         }
         Update: {
           campaign_name?: string
+          configuration?: Json
           created_at?: string
           created_by?: string
-          expires_at?: string
+          expires_at?: string | null
           id?: string
           revoked_at?: string | null
+          title?: string
           token_hash?: string
           updated_at?: string
         }
