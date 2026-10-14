@@ -16,12 +16,15 @@ function safeNumber(value: string | number | null | undefined): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
-export async function readMetaCreatives(accountId: string, accessToken: string): Promise<Ad[]> {
+export async function readMetaCreatives(accountId: string, accessToken: string, period?: { since: string; until: string }): Promise<Ad[]> {
   const rows: Ad[] = [];
   let after: string | undefined;
   for (let page = 0; page < 10; page += 1) {
     const url = new URL(`https://graph.facebook.com/v19.0/act_${accountId}/ads`);
-    url.searchParams.set('fields', 'id,name,status,campaign{name},creative{name,image_url,body},insights{clicks,spend}');
+    const insightsField = period
+      ? `insights.time_range(${JSON.stringify(period)}){clicks,spend}`
+      : 'insights{clicks,spend}';
+    url.searchParams.set('fields', `id,name,status,campaign{name},creative{name,image_url,body},${insightsField}`);
     url.searchParams.set('access_token', accessToken);
     url.searchParams.set('limit', '100');
     if (after) url.searchParams.set('after', after);
