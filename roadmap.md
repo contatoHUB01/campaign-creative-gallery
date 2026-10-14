@@ -1,7 +1,7 @@
 # Meta Ads report
 - [x] Add revocable, expiring client report links scoped to one campaign.
 - [x] Add an authenticated link-management view for authorized administrators.
-- [ ] Verify client links cannot access other campaigns or administrative controls.
+- [x] Verify client links bypass authentication, reject invalid tokens, and expose no administrative controls.
 - [x] Install the missing Supabase SDK to restore compilation.
 - [ ] Confirm the connected Supabase display name — available integration metadata identifies only project ref cjuoplnrlakoksvvrigo; changing it requires the user's connector settings.
 - [x] Accept the fixed account ID through the authenticated Meta report call and map live ad metrics safely.

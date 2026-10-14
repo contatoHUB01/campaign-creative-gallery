@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router';
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { ArrowDownToLine, ArrowUpRight, Search, SlidersHorizontal, LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { ReportLinkDialog } from '@/components/report-link-dialog';
 
 export const Route = createFileRoute('/')({
+  beforeLoad: ({ location }) => {
+    const token = new URLSearchParams(location.searchStr).get('token');
+    if (token && /^[a-f0-9]{64}$/.test(token)) {
+      throw redirect({ to: '/report/$token', params: { token }, replace: true });
+    }
+  },
   validateSearch: (search: Record<string, unknown>) => ({
     q: typeof search['q'] === 'string' ? search['q'] : '',
     status: search['status'] === 'Ativo' || search['status'] === 'Pausado' ? search['status'] : 'Todos',
