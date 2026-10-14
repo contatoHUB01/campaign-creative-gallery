@@ -1,11 +1,11 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowDownToLine, ArrowUpRight, Search, SlidersHorizontal, LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreativeCard } from '@/components/creative-card';
 import { currency, number } from '@/lib/ads';
-import { metaAdsQueryOptions } from '@/lib/metaApi';
+import { metaAdsQueryOptions, signedOutReport } from '@/lib/metaApi';
 import { MetaLogin } from '@/components/meta-login';
 import { supabase } from '@/integrations/supabase/client';
 import { ReportLinkDialog } from '@/components/report-link-dialog';
@@ -44,7 +44,7 @@ function ReportError() {
 }
 
 function Index() {
-  const { data: report, isFetching, refetch } = useSuspenseQuery(metaAdsQueryOptions);
+  const { data: report = signedOutReport, isFetching, isError, refetch } = useQuery(metaAdsQueryOptions);
   const ads = report.ads;
   const { q: search, status, campaign, sort } = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -95,10 +95,11 @@ function Index() {
           {filtered && <Button variant="ghost" size="icon" aria-label="Limpar filtros" title="Limpar filtros" onClick={reset}><X /></Button>}
         </div>
         {isFetching && <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>}
-        {!isFetching && report.requiresLogin && <MetaLogin />}
-        {!isFetching && report.error && !report.requiresLogin && <div className="py-12 text-center" role="alert"><h3 className="font-semibold">Não foi possível carregar os criativos</h3><p className="mt-2 text-sm text-muted-foreground">{report.error}</p><Button variant="outline" className="mt-5" onClick={() => { void refetch(); }}>Tentar novamente</Button></div>}
-        {!isFetching && !report.error && <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{visible.map(ad => <CreativeCard key={ad.id} ad={ad} />)}</div>}
-        {!isFetching && !report.error && visible.length === 0 && <div className="py-20 text-center"><Search className="mx-auto mb-3 text-muted-foreground" size={28} /><h3 className="font-semibold">Nenhum criativo encontrado</h3><p className="mt-2 text-sm text-muted-foreground">{filtered ? 'Tente outro termo ou ajuste os filtros.' : 'A Meta não retornou criativos para esta conta.'}</p>{filtered && <Button variant="outline" className="mt-5" onClick={reset}>Limpar filtros</Button>}</div>}
+        {!isFetching && isError && <div className="flex min-h-[280px] items-center justify-center px-6 text-center" role="alert"><p className="max-w-xl text-sm font-medium text-foreground">Falha ao conectar com o Servidor Seguro. Abra as Ferramentas de Programador (F12) para ver o erro no Console.</p></div>}
+        {!isFetching && !isError && report.requiresLogin && <MetaLogin />}
+        {!isFetching && !isError && report.error && !report.requiresLogin && <div className="py-12 text-center" role="alert"><h3 className="font-semibold">Não foi possível carregar os criativos</h3><p className="mt-2 text-sm text-muted-foreground">{report.error}</p><Button variant="outline" className="mt-5" onClick={() => { void refetch(); }}>Tentar novamente</Button></div>}
+        {!isFetching && !isError && !report.error && <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{visible.map(ad => <CreativeCard key={ad.id} ad={ad} />)}</div>}
+        {!isFetching && !isError && !report.error && visible.length === 0 && <div className="py-20 text-center"><Search className="mx-auto mb-3 text-muted-foreground" size={28} /><h3 className="font-semibold">Nenhum criativo encontrado</h3><p className="mt-2 text-sm text-muted-foreground">{filtered ? 'Tente outro termo ou ajuste os filtros.' : 'A Meta não retornou criativos para esta conta.'}</p>{filtered && <Button variant="outline" className="mt-5" onClick={reset}>Limpar filtros</Button>}</div>}
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5 text-[11px] text-muted-foreground"><span>Exibindo {visible.length} de {ads.length} criativos</span><span className="flex items-center gap-1">Cada ideia, um novo resultado.<ArrowUpRight size={13} className="text-primary" /></span></footer>
       </main>
     </div>

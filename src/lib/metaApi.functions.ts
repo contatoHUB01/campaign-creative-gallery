@@ -17,6 +17,7 @@ export const buscarCriativosMetaServer = createServerFn({ method: 'POST' })
     try {
       return { ads: await readMetaCreatives(data.accountId, accessToken), connected: true, error: null };
     } catch (error) {
-      return { ads: [], connected: false, error: error instanceof Error ? error.message : 'Não foi possível carregar os criativos. Tente novamente.' };
+      console.error('Erro ao consultar o servidor seguro da Meta:', error);
+      throw error;
     }
   });
