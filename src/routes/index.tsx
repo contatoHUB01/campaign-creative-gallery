@@ -23,7 +23,6 @@ export const Route = createFileRoute('/')({
     campaign: typeof search['campaign'] === 'string' ? search['campaign'] : 'Todas',
     sort: search['sort'] === 'clicks' || search['sort'] === 'spent' ? search['sort'] : 'recent',
   }),
-  loader: async ({ context }) => { await context.queryClient.ensureQueryData(metaAdsQueryOptions); },
   pendingComponent: () => <div className="flex min-h-screen items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>,
   errorComponent: ReportError,
   notFoundComponent: () => <div className="p-10">Relatório não encontrado.</div>,
