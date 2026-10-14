@@ -17,3 +17,4 @@
 - Keep the Meta account input allowlisted in the authenticated server function and disable shared response caching; workspace credentials must not allow arbitrary account reads.
 - Keep one root auth transition subscriber and clear private report queries on sign-out; private data must not survive logout in the UI.
 - Magic Link requests must not create new users automatically; report access is for existing authorized accounts.
+- Keep client report links revocable, expiring, and scoped server-side to one exact campaign; never trust URL campaign parameters or expose stored token hashes.
