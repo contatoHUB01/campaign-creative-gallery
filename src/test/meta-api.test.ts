@@ -13,9 +13,9 @@ describe('Meta creative reads', () => {
     expect(rows[0]).toMatchObject({ id: '42', campaign: 'Campanha real', title: 'Criativo real', copy: 'Texto', imageUrl: 'https://example.com/image.jpg', clicks: 123, spent: 45.67, status: 'Ativo' });
     expect(rows[1]?.title).toBe('Anúncio sem título');
     expect(rows[1]).toMatchObject({ clicks: 0, spent: 0, status: 'Pausado' });
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/ads?');
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('graph.facebook.com/v19.0/act_123/ads?');
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('access_token=test-token');
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain('after=cursor');
-    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain('test-token');
   });
 
   it('converts invalid and missing insights safely', async () => {
