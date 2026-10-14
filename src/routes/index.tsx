@@ -74,7 +74,7 @@ function Index() {
       <main className="mx-auto max-w-[1240px] px-6 pb-12 pt-9 sm:px-10 sm:pt-11">
         <div className="flex flex-wrap items-center justify-between gap-5">
           <div><div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />Visão de criativos</div><h1 className="text-[30px] font-bold leading-tight sm:text-[34px]">Criativos que contam histórias.</h1><p className="mt-3 text-sm text-muted-foreground">Uma visão clara dos seus anúncios e dos resultados de cada ideia.</p></div>
-          <div className="flex flex-wrap gap-2">{report.connected && <ReportLinkDialog campaigns={campaigns} />}<Button variant="outline" className="bg-card" onClick={exportReport} disabled={!report.connected || isFetching}><ArrowDownToLine />Exportar relatório</Button></div>
+          <div className="flex flex-wrap gap-2">{report.connected && <ReportLinkDialog ads={ads} filters={{ q: search, status, campaign, sort }} />}<Button variant="outline" className="bg-card" onClick={exportReport} disabled={!report.connected || isFetching}><ArrowDownToLine />Exportar relatório</Button></div>
         </div>
         <div className="mt-7 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span className={`rounded border px-2 py-1 font-medium ${report.connected ? 'api-connected' : 'border-border bg-card'}`}>{report.connected ? 'Ligado à API' : 'API não conectada'}</span>{report.connected && <span>Anúncios, campanhas e métricas da Meta</span>}</div>
         <section aria-label="Resumo dos resultados" className="report-summary my-8 border-y border-border py-7">
