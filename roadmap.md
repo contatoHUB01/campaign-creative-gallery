@@ -10,6 +10,7 @@
 - [ ] Verify Magic Link delivery and hosted sign-in settings — unavailable authorized session and no hosted-settings read for this externally managed Supabase project.
 - [x] Replace simulated rows with secure real creative reads while preserving layout and filters.
 - [x] Verify signed-out error handling, URL filters, and layout on desktop and mobile.
+- [x] Surface secure Meta server failures as a visible report error instead of an empty dashboard.
 - [ ] Verify real account access and rendered live creatives — blocked by an unavailable authorized app session on this externally managed project.
 - [ ] Authorize contato@criativamktdigital.com under Supabase Authentication → Users — account creation in this user-managed database is blocked from the sandbox.
 - [ ] Confirm the access-link email sender (SMTP) in the connected Supabase project — without it the magic link may not arrive.

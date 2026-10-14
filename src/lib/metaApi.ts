@@ -10,7 +10,12 @@ export async function buscarCriativosMeta(accountId: string): Promise<MetaReport
   if (typeof window === 'undefined') return signedOutReport;
   const { data } = await supabase.auth.getSession();
   if (!data.session) return signedOutReport;
-  return buscarCriativosMetaServer({ data: { accountId } });
+  try {
+    return await buscarCriativosMetaServer({ data: { accountId } });
+  } catch (error) {
+    console.error('Erro no Servidor Seguro:', error);
+    throw error;
+  }
 }
 
 export const metaAdsQueryOptions = queryOptions({
