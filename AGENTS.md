@@ -18,3 +18,4 @@
 - Keep one root auth transition subscriber and clear private report queries on sign-out; private data must not survive logout in the UI.
 - Magic Link requests must not create new users automatically; report access is for existing authorized accounts.
 - Keep client report links revocable, expiring, and scoped server-side to one exact campaign; never trust URL campaign parameters or expose stored token hashes.
+- Canonicalize valid shared-token query URLs to the public read-only report route before loading the authenticated report; this prevents the sign-in screen from blocking clients.
