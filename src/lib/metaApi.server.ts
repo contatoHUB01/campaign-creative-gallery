@@ -20,11 +20,12 @@ export async function readMetaCreatives(accountId: string, accessToken: string):
   const rows: Ad[] = [];
   let after: string | undefined;
   for (let page = 0; page < 10; page += 1) {
-    const url = new URL(`https://graph.facebook.com/v26.0/act_${accountId}/ads`);
+    const url = new URL(`https://graph.facebook.com/v19.0/act_${accountId}/ads`);
     url.searchParams.set('fields', 'id,name,status,campaign{name},creative{name,image_url,body},insights{clicks,spend}');
+    url.searchParams.set('access_token', accessToken);
     url.searchParams.set('limit', '100');
     if (after) url.searchParams.set('after', after);
-    const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(30000) });
+    const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
     if (!response.ok) {
       const body = (await response.text()).replaceAll(accessToken, '[redacted]');
       console.error(`Meta Ads [${response.status}]: ${body}`);
