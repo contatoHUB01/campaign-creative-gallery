@@ -11,6 +11,10 @@
 - [x] Replace simulated rows with secure real creative reads while preserving layout and filters.
 - [x] Verify signed-out error handling, URL filters, and layout on desktop and mobile.
 - [x] Surface secure Meta server failures as a visible report error instead of an empty dashboard.
+- [x] Replace signed-out dashboard with a full-page login lock.
+- [x] Add builder controls and server-side owner checks for saving and editing the same report link.
+- [x] Test saved scope, campaign totals, manual adjustments, date validation, and hidden-metric redaction.
+- [ ] Verify authenticated creation, update and revocation with live Meta data — authenticated end-to-end testing is unavailable for this external Supabase connection.
 - [ ] Verify real account access and rendered live creatives — blocked by an unavailable authorized app session on this externally managed project.
 - [ ] Authorize contato@criativamktdigital.com under Supabase Authentication → Users — account creation in this user-managed database is blocked from the sandbox.
 - [ ] Confirm the access-link email sender (SMTP) in the connected Supabase project — without it the magic link may not arrive.

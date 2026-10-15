@@ -19,3 +19,4 @@
 - Magic Link requests must not create new users automatically; report access is for existing authorized accounts.
 - Keep client report links revocable, non-expiring, owner-editable, and scoped server-side to their saved report configuration; never trust URL filters or expose stored token hashes.
 - Canonicalize valid shared-token query URLs to the public read-only report route before loading the authenticated report; this prevents the sign-in screen from blocking clients.
+- Keep report validation, campaign totals, filtering, and public metric redaction in `src/lib/report-configuration.ts`; shared responses must remove hidden metrics before serialization.

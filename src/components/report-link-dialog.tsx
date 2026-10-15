@@ -11,10 +11,9 @@ import { createCampaignReportLink, listCampaignReportLinks, revokeCampaignReport
 
 type CurrentFilters = { q: string; status: string; campaign: string; sort: string };
 
-const today = new Date().toISOString().slice(0, 10);
-const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
 export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: CurrentFilters }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const listLinks = useServerFn(listCampaignReportLinks);
   const createLink = useServerFn(createCampaignReportLink);
   const updateLink = useServerFn(updateCampaignReportLink);
@@ -24,12 +23,13 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
   const [step, setStep] = useState<'content' | 'metrics' | 'link'>('content');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('Relatório de campanhas');
-  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>(campaigns);
+  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>(filters.campaign === 'Todas' ? campaigns : [filters.campaign]);
   const [selectedAds, setSelectedAds] = useState<string[]>([]);
-  const [statuses, setStatuses] = useState<Array<'Ativo' | 'Pausado'>>(['Ativo', 'Pausado']);
+  const [statuses, setStatuses] = useState<Array<'Ativo' | 'Pausado'>>(filters.status === 'Ativo' || filters.status === 'Pausado' ? [filters.status] : ['Ativo', 'Pausado']);
   const [since, setSince] = useState(monthAgo);
   const [until, setUntil] = useState(today);
   const [useCurrentFilters, setUseCurrentFilters] = useState(true);
+  const [savedFilters, setSavedFilters] = useState<ReportConfiguration['filters'] | null>(null);
   const [showClicks, setShowClicks] = useState(true);
   const [showSpent, setShowSpent] = useState(true);
   const [clicksOverride, setClicksOverride] = useState('');
@@ -39,7 +39,6 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => { if (campaigns.length && selectedCampaigns.length === 0 && !editingId) setSelectedCampaigns(campaigns); }, [campaigns, editingId, selectedCampaigns.length]);
   useEffect(() => { if (open) void listLinks().then(setLinks).catch(() => setError('Não foi possível carregar os relatórios.')); }, [listLinks, open]);
 
   const eligibleAds = ads.filter(ad => selectedCampaigns.includes(ad.campaign) && statuses.includes(ad.status));
@@ -48,7 +47,7 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
     adIds: selectedAds,
     statuses,
     period: since && until ? { since, until } : undefined,
-    filters: { q: useCurrentFilters ? filters.q : '', sort: useCurrentFilters && ['clicks', 'spent'].includes(filters.sort) ? filters.sort as 'clicks' | 'spent' : 'recent' },
+    filters: savedFilters ?? { q: useCurrentFilters ? filters.q : '', sort: useCurrentFilters && ['clicks', 'spent'].includes(filters.sort) ? filters.sort as 'clicks' | 'spent' : 'recent' },
     visibility: { clicks: showClicks, spent: showSpent },
     overrides: {
       ...(clicksOverride === '' ? {} : { clicks: Number(clicksOverride) }),
@@ -58,17 +57,19 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
 
   function resetBuilder() {
     setEditingId(null); setTitle('Relatório de campanhas'); setSelectedCampaigns(campaigns); setSelectedAds([]); setStatuses(['Ativo', 'Pausado']);
-    setSince(monthAgo); setUntil(today); setUseCurrentFilters(true); setShowClicks(true); setShowSpent(true); setClicksOverride(''); setSpentOverride(''); setCreatedUrl(''); setStep('content');
+    setSince(monthAgo); setUntil(today); setUseCurrentFilters(true); setSavedFilters(null); setShowClicks(true); setShowSpent(true); setClicksOverride(''); setSpentOverride(''); setCreatedUrl(''); setStep('content');
   }
 
   function editReport(link: CampaignReportLink) {
     setEditingId(link.id); setTitle(link.title); setSelectedCampaigns(link.configuration.campaigns); setSelectedAds(link.configuration.adIds); setStatuses(link.configuration.statuses);
     setSince(link.configuration.period?.since ?? ''); setUntil(link.configuration.period?.until ?? ''); setUseCurrentFilters(Boolean(link.configuration.filters.q || link.configuration.filters.sort !== 'recent'));
+    setSavedFilters(link.configuration.filters);
     setShowClicks(link.configuration.visibility.clicks); setShowSpent(link.configuration.visibility.spent); setClicksOverride(link.configuration.overrides.clicks?.toString() ?? ''); setSpentOverride(link.configuration.overrides.spent?.toString() ?? ''); setCreatedUrl(''); setStep('content');
   }
 
   async function saveReport() {
     if (!title.trim() || selectedCampaigns.length === 0 || statuses.length === 0 || pending) return;
+    if (!since || !until || since > until) { setError('Selecione um período válido.'); return; }
     setPending(true); setError('');
     try {
       if (editingId) {
@@ -85,8 +86,10 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
   }
 
   async function handleRevoke(id: string) {
-    await revokeLink({ data: { id } });
-    setLinks(current => current.map(link => link.id === id ? { ...link, revokedAt: new Date().toISOString() } : link));
+    try {
+      await revokeLink({ data: { id } });
+      setLinks(current => current.map(link => link.id === id ? { ...link, revokedAt: new Date().toISOString() } : link));
+    } catch { setError('Não foi possível revogar o link.'); }
   }
 
   const toggle = <T,>(list: T[], value: T, set: (next: T[]) => void) => set(list.includes(value) ? list.filter(item => item !== value) : [...list, value]);
@@ -95,7 +98,7 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
     <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
       <DialogHeader><DialogTitle>Construtor de relatório</DialogTitle><DialogDescription>Escolha o conteúdo, controle as métricas e gere um link único sem expiração.</DialogDescription></DialogHeader>
       <div className="flex border-b border-border text-xs font-medium">
-        {([['content', '1. Conteúdo'], ['metrics', '2. Métricas'], ['link', '3. Link']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => setStep(value)} className={`flex-1 border-b-2 px-2 py-3 ${step === value ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}>{label}</button>)}
+        {([['content', '1. Conteúdo'], ['metrics', '2. Métricas'], ['link', '3. Link']] as const).map(([value, label]) => <Button key={value} type="button" variant="ghost" disabled={value === 'link' && !editingId} onClick={() => setStep(value)} className={`h-11 flex-1 rounded-none border-b-2 px-2 text-xs ${step === value ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}>{label}</Button>)}
       </div>
 
       {step === 'content' && <div className="space-y-5">
@@ -104,7 +107,7 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
         <fieldset><legend className="mb-2 text-xs font-medium">Campanhas</legend><div className="grid max-h-40 gap-2 overflow-y-auto rounded-md border border-border p-3 sm:grid-cols-2">{campaigns.map(name => <label key={name} className="flex items-start gap-2 text-xs"><Checkbox checked={selectedCampaigns.includes(name)} onCheckedChange={() => toggle(selectedCampaigns, name, setSelectedCampaigns)} /><span>{name}</span></label>)}</div></fieldset>
         <fieldset><legend className="mb-2 text-xs font-medium">Status</legend><div className="flex gap-5">{(['Ativo', 'Pausado'] as const).map(value => <label key={value} className="flex items-center gap-2 text-xs"><Checkbox checked={statuses.includes(value)} onCheckedChange={() => toggle(statuses, value, setStatuses)} />{value}</label>)}</div></fieldset>
         <fieldset><legend className="mb-2 text-xs font-medium">Anúncios</legend><p className="mb-2 text-xs text-muted-foreground">Sem seleção, todos os anúncios das campanhas escolhidas serão incluídos.</p><div className="grid max-h-44 gap-2 overflow-y-auto rounded-md border border-border p-3 sm:grid-cols-2">{eligibleAds.map(ad => <label key={ad.id} className="flex items-start gap-2 text-xs"><Checkbox checked={selectedAds.includes(String(ad.id))} onCheckedChange={() => toggle(selectedAds, String(ad.id), setSelectedAds)} /><span>{ad.title}</span></label>)}</div></fieldset>
-        <label className="flex items-center gap-2 text-xs"><Checkbox checked={useCurrentFilters} onCheckedChange={value => setUseCurrentFilters(Boolean(value))} />Usar a pesquisa e a ordenação atuais</label>
+        <label className="flex items-center gap-2 text-xs"><Checkbox checked={useCurrentFilters} onCheckedChange={value => { setUseCurrentFilters(Boolean(value)); setSavedFilters(null); }} />Usar a pesquisa e a ordenação atuais</label>
         <div className="flex justify-end"><Button onClick={() => setStep('metrics')} disabled={!title.trim() || selectedCampaigns.length === 0 || statuses.length === 0}>Continuar</Button></div>
       </div>}
 
