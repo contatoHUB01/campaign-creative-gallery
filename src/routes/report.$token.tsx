@@ -17,9 +17,9 @@ const sharedReportQuery = (token: string) => queryOptions({
 export const Route = createFileRoute('/report/$token')({
   loader: ({ context, params }) => context.queryClient.ensureQueryData(sharedReportQuery(params.token)),
   head: () => ({ meta: [
-    { title: 'Relatório de campanha | Criativa' },
-    { name: 'description', content: 'Relatório compartilhado de criativos e desempenho de uma campanha Meta Ads.' },
-    { property: 'og:title', content: 'Relatório de campanha | Criativa' },
+    { title: 'Relatório compartilhado | Criativa' },
+    { name: 'description', content: 'Relatório personalizado de criativos e resultados das campanhas Meta Ads selecionadas.' },
+    { property: 'og:title', content: 'Relatório compartilhado | Criativa' },
     { property: 'og:description', content: 'Criativos e resultados de campanha em uma visão clara.' },
     { property: 'og:type', content: 'website' },
     { name: 'twitter:card', content: 'summary_large_image' },
@@ -46,7 +46,7 @@ function SharedCampaignReport() {
           ...(showSpent ? [{ label: 'Investimento total', value: currency(spent), icon: Wallet, note: 'Valor gasto no período' }] : []),
           ...(showClicks && showSpent ? [{ label: 'Custo por clique', value: currency(clicks ? spent / clicks : 0), icon: CircleDollarSign, note: 'Média dos criativos' }] : []),
         ].map(item => <div key={item.label}><div className="mb-3 flex items-center gap-2 text-[12px] text-muted-foreground"><item.icon size={15} />{item.label}</div><p className="text-[27px] font-semibold leading-none tabular-nums">{item.value}</p><p className="mt-3 text-[11px] text-muted-foreground">{item.note}</p></div>)}</section>
-        <div className="mb-5 flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Criativos da campanha</h2><span className="text-xs text-muted-foreground">{ads.length} anúncios</span></div>
+        <div className="mb-5 flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Criativos selecionados</h2><span className="text-xs text-muted-foreground">{ads.length} anúncios</span></div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{ads.map(ad => <CreativeCard key={ad.id} ad={ad} showClicks={showClicks} showSpent={showSpent} />)}</div>
       </>}
     </main>
