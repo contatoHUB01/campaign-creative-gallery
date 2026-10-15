@@ -57,6 +57,9 @@ function Index() {
   const spent = visible.reduce((sum, ad) => sum + ad.spent, 0);
   const filtered = search || status !== 'Todos' || campaign !== 'Todas';
   const reset = () => { void navigate({ search: previous => ({ ...previous, q: '', status: 'Todos', campaign: 'Todas' }), replace: true }); };
+  if (!isFetching && !isError && report.requiresLogin) {
+    return <main className="flex min-h-screen flex-col items-center justify-center px-6"><div className="flex items-center gap-2 text-3xl font-extrabold"><Sparkles className="text-primary" />criativa<span className="text-primary">.</span></div><MetaLogin /></main>;
+  }
   function exportReport() {
     const rows = [['Campanha', 'Título', 'Copy', 'Formato', 'Cliques', 'Valor gasto (BRL)', 'Status'], ...visible.map(ad => [ad.campaign, ad.title, ad.copy, ad.format, String(ad.clicks), ad.spent.toFixed(2), ad.status])];
     const blob = new Blob(['\uFEFF' + rows.map(row => row.map(cell => `"${cell.replaceAll('"', '""')}"`).join(';')).join('\n')], { type: 'text/csv;charset=utf-8;' });

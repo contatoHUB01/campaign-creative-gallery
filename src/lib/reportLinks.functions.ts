@@ -3,22 +3,11 @@ import { setResponseHeader } from '@tanstack/react-start/server';
 import { z } from 'zod';
 import { requireSupabaseAuth } from '@/integrations/supabase/auth-middleware';
 import { readMetaCreatives } from './metaApi.server';
-import type { Ad } from './ads';
 import type { MetaReport } from './metaApi.functions';
-import type { Json } from '@/integrations/supabase/types';
+import { reportConfigurationSchema, parseSavedConfiguration, projectSharedReport, type ReportConfiguration } from './report-configuration';
+export type { ReportConfiguration } from './report-configuration';
 
 const accountIdSchema = z.literal('815749902379278');
-const reportConfigurationSchema = z.object({
-  campaigns: z.array(z.string().trim().min(1).max(300)).min(1),
-  adIds: z.array(z.string()).default([]),
-  statuses: z.array(z.enum(['Ativo', 'Pausado'])).min(1),
-  period: z.object({ since: z.string().date(), until: z.string().date() }).optional(),
-  filters: z.object({ q: z.string().max(200).default(''), sort: z.enum(['recent', 'clicks', 'spent']).default('recent') }),
-  visibility: z.object({ clicks: z.boolean(), spent: z.boolean() }),
-  overrides: z.object({ clicks: z.number().nonnegative().optional(), spent: z.number().nonnegative().optional() }),
-});
-
-export type ReportConfiguration = z.infer<typeof reportConfigurationSchema>;
 export type CampaignReportLink = {
   id: string;
   title: string;
@@ -28,7 +17,7 @@ export type CampaignReportLink = {
   createdAt: string;
   updatedAt: string;
 };
-export type SharedMetaReport = MetaReport & { title?: string; campaignName?: string; configuration?: ReportConfiguration };
+export type SharedMetaReport = MetaReport & { title?: string; campaignName?: string; configuration?: ReportConfiguration; totals?: { clicks?: number; spent?: number } };
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
@@ -45,21 +34,6 @@ function makeToken(): string {
   return bytesToHex(bytes);
 }
 
-function parseConfiguration(value: Json): ReportConfiguration {
-  return reportConfigurationSchema.parse(value);
-}
-
-function filterAds(ads: Ad[], configuration: ReportConfiguration): Ad[] {
-  const query = configuration.filters.q.toLocaleLowerCase('pt-BR');
-  const selected = ads.filter(ad =>
-    configuration.campaigns.includes(ad.campaign)
-    && configuration.statuses.includes(ad.status)
-    && (configuration.adIds.length === 0 || configuration.adIds.includes(String(ad.id)))
-    && `${ad.title} ${ad.copy} ${ad.campaign}`.toLocaleLowerCase('pt-BR').includes(query)
-  );
-  return selected.sort((a, b) => configuration.filters.sort === 'clicks' ? b.clicks - a.clicks : configuration.filters.sort === 'spent' ? b.spent - a.spent : 0);
-}
-
 export const listCampaignReportLinks = createServerFn({ method: 'GET' })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<CampaignReportLink[]> => {
@@ -67,12 +41,12 @@ export const listCampaignReportLinks = createServerFn({ method: 'GET' })
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     const { data, error } = await supabaseAdmin
       .from('campaign_report_links')
-      .select('id,title,configuration,revoked_at,created_at,updated_at')
+      .select('id,title,campaign_name,configuration,revoked_at,created_at,updated_at')
       .eq('created_by', context.userId)
       .order('updated_at', { ascending: false });
     if (error) throw new Error('Não foi possível carregar os relatórios.');
     return data.map(link => {
-      const configuration = parseConfiguration(link.configuration);
+      const configuration = parseSavedConfiguration(link.configuration, link.campaign_name);
       return { id: link.id, title: link.title, campaigns: configuration.campaigns, configuration, revokedAt: link.revoked_at, createdAt: link.created_at, updatedAt: link.updated_at };
     });
   });
@@ -133,14 +107,14 @@ export const getSharedCampaignReport = createServerFn({ method: 'POST' })
     setResponseHeader('Cache-Control', 'private, no-store');
     const tokenHash = await hashToken(data.token);
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-    const { data: link, error } = await supabaseAdmin.from('campaign_report_links').select('title,configuration,revoked_at').eq('token_hash', tokenHash).maybeSingle();
-    if (error || !link || link.revoked_at) return { ads: [], connected: false, error: 'Este link não existe ou foi revogado.' };
+    const { data: link, error } = await supabaseAdmin.from('campaign_report_links').select('title,campaign_name,configuration,expires_at,revoked_at').eq('token_hash', tokenHash).maybeSingle();
+    if (error || !link || link.revoked_at || (link.expires_at && new Date(link.expires_at).getTime() <= Date.now())) return { ads: [], connected: false, error: 'Este link não existe, expirou ou foi revogado.' };
     const accessToken = process.env['META_ACCESS_TOKEN'];
     if (!accessToken) return { ads: [], connected: false, error: 'O relatório está temporariamente indisponível.' };
     try {
-      const configuration = parseConfiguration(link.configuration);
-      const ads = filterAds(await readMetaCreatives('815749902379278', accessToken, configuration.period), configuration);
-      return { ads, connected: true, error: null, title: link.title, campaignName: configuration.campaigns.join(', '), configuration };
+      const configuration = parseSavedConfiguration(link.configuration, link.campaign_name);
+      const projection = projectSharedReport(await readMetaCreatives('815749902379278', accessToken, configuration.period), configuration);
+      return { ...projection, connected: true, error: null, title: link.title, campaignName: configuration.campaigns.join(', ') };
     } catch (cause) {
       console.error('Erro ao carregar relatório compartilhado:', cause);
       return { ads: [], connected: false, error: 'Não foi possível carregar este relatório agora.' };

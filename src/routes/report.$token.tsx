@@ -8,7 +8,9 @@ import { getSharedCampaignReport } from '@/lib/reportLinks.functions';
 const sharedReportQuery = (token: string) => queryOptions({
   queryKey: ['shared-campaign-report', token],
   queryFn: () => getSharedCampaignReport({ data: { token } }),
-  staleTime: 5 * 60 * 1000,
+  staleTime: 0,
+  refetchOnMount: 'always',
+  refetchInterval: 30_000,
   retry: false,
 });
 
@@ -29,8 +31,8 @@ function SharedCampaignReport() {
   const { token } = Route.useParams();
   const { data: report } = useSuspenseQuery(sharedReportQuery(token));
   const ads = report.ads;
-  const clicks = report.configuration?.overrides.clicks ?? ads.reduce((sum, ad) => sum + ad.clicks, 0);
-  const spent = report.configuration?.overrides.spent ?? ads.reduce((sum, ad) => sum + ad.spent, 0);
+  const clicks = report.totals?.clicks ?? 0;
+  const spent = report.totals?.spent ?? 0;
   const showClicks = report.configuration?.visibility.clicks ?? true;
   const showSpent = report.configuration?.visibility.spent ?? true;
   return <div className="min-h-screen">
