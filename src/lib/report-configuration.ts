@@ -7,7 +7,7 @@ export const reportConfigurationSchema = z.object({
   statuses: z.array(z.enum(['Ativo', 'Pausado'])).min(1),
   period: z.object({ since: z.string().date(), until: z.string().date() }).refine(period => period.since <= period.until, 'A data final deve ser posterior à inicial.').optional(),
   filters: z.object({ q: z.string().max(200).default(''), sort: z.enum(['recent', 'clicks', 'spent']).default('recent') }),
-  visibility: z.object({ clicks: z.boolean(), spent: z.boolean() }),
+  visibility: z.object({ clicks: z.boolean(), spent: z.boolean(), conversations: z.boolean().default(false) }),
   overrides: z.object({ clicks: z.number().finite().int().nonnegative().optional(), spent: z.number().finite().nonnegative().optional() }),
 });
 
@@ -37,9 +37,10 @@ export function projectSharedReport(ads: Ad[], configuration: ReportConfiguratio
   const totals = {
     ...(configuration.visibility.clicks ? { clicks: configuration.overrides.clicks ?? campaignAds.reduce((sum, ad) => sum + ad.clicks, 0) } : {}),
     ...(configuration.visibility.spent ? { spent: configuration.overrides.spent ?? campaignAds.reduce((sum, ad) => sum + ad.spent, 0) } : {}),
+    ...(configuration.visibility.conversations ? { conversations: campaignAds.reduce((sum, ad) => sum + (ad.conversations ?? 0), 0) } : {}),
   };
   return {
-    ads: selectReportAds(ads, configuration).map(ad => ({ ...ad, clicks: configuration.visibility.clicks ? ad.clicks : 0, spent: configuration.visibility.spent ? ad.spent : 0 })),
+    ads: selectReportAds(ads, configuration).map(ad => ({ ...ad, clicks: configuration.visibility.clicks ? ad.clicks : 0, spent: configuration.visibility.spent ? ad.spent : 0, conversations: configuration.visibility.conversations ? (ad.conversations ?? 0) : 0 })),
     totals,
     configuration: { ...configuration, overrides: {
       ...(configuration.visibility.clicks && configuration.overrides.clicks !== undefined ? { clicks: configuration.overrides.clicks } : {}),

@@ -9,7 +9,7 @@ import { ACCOUNT_ID } from '@/lib/metaApi';
 import type { Ad } from '@/lib/ads';
 import { createCampaignReportLink, listCampaignReportLinks, revokeCampaignReportLink, updateCampaignReportLink, type CampaignReportLink, type ReportConfiguration } from '@/lib/reportLinks.functions';
 
-type CurrentFilters = { q: string; status: string; campaign: string; sort: string };
+type CurrentFilters = { q: string; status: string; campaign: string[]; sort: string };
 
 export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: CurrentFilters }) {
   const today = new Date().toISOString().slice(0, 10);
@@ -23,7 +23,7 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
   const [step, setStep] = useState<'content' | 'metrics' | 'link'>('content');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('Relatório de campanhas');
-  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>(filters.campaign === 'Todas' ? campaigns : [filters.campaign]);
+  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>(filters.campaign.length ? filters.campaign : campaigns);
   const [selectedAds, setSelectedAds] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<Array<'Ativo' | 'Pausado'>>(filters.status === 'Ativo' || filters.status === 'Pausado' ? [filters.status] : ['Ativo', 'Pausado']);
   const [since, setSince] = useState(monthAgo);
@@ -32,6 +32,7 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
   const [savedFilters, setSavedFilters] = useState<ReportConfiguration['filters'] | null>(null);
   const [showClicks, setShowClicks] = useState(true);
   const [showSpent, setShowSpent] = useState(true);
+  const [showConversations, setShowConversations] = useState(true);
   const [clicksOverride, setClicksOverride] = useState('');
   const [spentOverride, setSpentOverride] = useState('');
   const [links, setLinks] = useState<CampaignReportLink[]>([]);
@@ -48,7 +49,7 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
     statuses,
     period: since && until ? { since, until } : undefined,
     filters: savedFilters ?? { q: useCurrentFilters ? filters.q : '', sort: useCurrentFilters && ['clicks', 'spent'].includes(filters.sort) ? filters.sort as 'clicks' | 'spent' : 'recent' },
-    visibility: { clicks: showClicks, spent: showSpent },
+    visibility: { clicks: showClicks, spent: showSpent, conversations: showConversations },
     overrides: {
       ...(clicksOverride === '' ? {} : { clicks: Number(clicksOverride) }),
       ...(spentOverride === '' ? {} : { spent: Number(spentOverride) }),
@@ -64,7 +65,7 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
     setEditingId(link.id); setTitle(link.title); setSelectedCampaigns(link.configuration.campaigns); setSelectedAds(link.configuration.adIds); setStatuses(link.configuration.statuses);
     setSince(link.configuration.period?.since ?? ''); setUntil(link.configuration.period?.until ?? ''); setUseCurrentFilters(Boolean(link.configuration.filters.q || link.configuration.filters.sort !== 'recent'));
     setSavedFilters(link.configuration.filters);
-    setShowClicks(link.configuration.visibility.clicks); setShowSpent(link.configuration.visibility.spent); setClicksOverride(link.configuration.overrides.clicks?.toString() ?? ''); setSpentOverride(link.configuration.overrides.spent?.toString() ?? ''); setCreatedUrl(''); setStep('content');
+    setShowClicks(link.configuration.visibility.clicks); setShowSpent(link.configuration.visibility.spent); setShowConversations(link.configuration.visibility.conversations); setClicksOverride(link.configuration.overrides.clicks?.toString() ?? ''); setSpentOverride(link.configuration.overrides.spent?.toString() ?? ''); setCreatedUrl(''); setStep('content');
   }
 
   async function saveReport() {
@@ -112,7 +113,7 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
       </div>}
 
       {step === 'metrics' && <div className="space-y-5">
-        <fieldset><legend className="mb-3 text-xs font-medium">Dados visíveis para o cliente</legend><div className="grid gap-3 sm:grid-cols-2"><label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><Checkbox checked={showClicks} onCheckedChange={value => setShowClicks(Boolean(value))} />Cliques</label><label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><Checkbox checked={showSpent} onCheckedChange={value => setShowSpent(Boolean(value))} />Investimento</label></div></fieldset>
+        <fieldset><legend className="mb-3 text-xs font-medium">Dados visíveis para o cliente</legend><div className="grid gap-3 sm:grid-cols-2"><label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><Checkbox checked={showClicks} onCheckedChange={value => setShowClicks(Boolean(value))} />Cliques</label><label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><Checkbox checked={showSpent} onCheckedChange={value => setShowSpent(Boolean(value))} />Investimento</label><label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><Checkbox checked={showConversations} onCheckedChange={value => setShowConversations(Boolean(value))} />Conversas e custo por conversa</label></div></fieldset>
         <div><h3 className="text-xs font-medium">Ajustes manuais dos totais</h3><p className="mt-1 text-xs text-muted-foreground">Deixe em branco para usar os valores reais da Meta. O dado original não será alterado.</p><div className="mt-3 grid gap-4 sm:grid-cols-2"><div><label htmlFor="clicks-override" className="mb-2 block text-xs">Total de cliques</label><Input id="clicks-override" type="number" min="0" value={clicksOverride} onChange={event => setClicksOverride(event.target.value)} placeholder="Valor real" /></div><div><label htmlFor="spent-override" className="mb-2 block text-xs">Investimento total</label><Input id="spent-override" type="number" min="0" step="0.01" value={spentOverride} onChange={event => setSpentOverride(event.target.value)} placeholder="Valor real" /></div></div></div>
         <div className="flex justify-between"><Button variant="outline" onClick={() => setStep('content')}>Voltar</Button><Button onClick={() => { void saveReport(); }} disabled={pending}>{pending ? <Loader2 className="animate-spin" /> : <Link2 />}{editingId ? 'Atualizar relatório' : 'Gerar link único'}</Button></div>
       </div>}
