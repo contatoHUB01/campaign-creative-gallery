@@ -1,8 +1,8 @@
-import { Instagram, Facebook, MousePointer2, Wallet, Megaphone, ImageOff } from 'lucide-react';
+import { Instagram, Facebook, MousePointer2, Wallet, MessageCircle, Megaphone, ImageOff } from 'lucide-react';
 import { useState } from 'react';
 import { currency, number, type Ad } from '@/lib/ads';
 
-export function CreativeCard({ ad, showClicks = true, showSpent = true }: { ad: Ad; showClicks?: boolean; showSpent?: boolean }) {
+export function CreativeCard({ ad, showClicks = true, showSpent = true, showConversations = true }: { ad: Ad; showClicks?: boolean; showSpent?: boolean; showConversations?: boolean }) {
   const [imageFailed, setImageFailed] = useState(false);
   const Platform = ad.format.includes('Instagram') ? Instagram : Facebook;
   return (
@@ -17,10 +17,17 @@ export function CreativeCard({ ad, showClicks = true, showSpent = true }: { ad: 
         <h3 className="text-[17px] font-semibold leading-6">{ad.title}</h3>
         <p className="mt-2 min-h-[66px] text-[13px] leading-[22px] text-muted-foreground">{ad.copy}</p>
       </div>
-      {(showClicks || showSpent) && <div className={`grid border-t border-border bg-metric px-5 py-4 ${showClicks && showSpent ? 'grid-cols-2' : 'grid-cols-1'}`}>
-        {showClicks && <div><p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground"><MousePointer2 size={13} />Cliques</p><p className="text-lg font-semibold tabular-nums">{number(ad.clicks)}</p></div>}
-        {showSpent && <div className={showClicks ? 'border-l border-border pl-5' : ''}><p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground"><Wallet size={13} />Valor gasto</p><p className="text-lg font-semibold tabular-nums">{currency(ad.spent)}</p></div>}
-      </div>}
+      {(() => {
+        const metrics = [
+          ...(showClicks ? [{ label: 'Cliques', value: number(ad.clicks), icon: MousePointer2 }] : []),
+          ...(showSpent ? [{ label: 'Valor gasto', value: currency(ad.spent), icon: Wallet }] : []),
+          ...(showConversations ? [{ label: 'Conversas', value: number(ad.conversations ?? 0), icon: MessageCircle }] : []),
+        ];
+        if (!metrics.length) return null;
+        return <div className={`grid border-t border-border bg-metric px-5 py-4 ${metrics.length === 3 ? 'grid-cols-3' : metrics.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          {metrics.map((metric, index) => <div key={metric.label} className={index ? 'border-l border-border pl-4' : ''}><p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground"><metric.icon size={13} />{metric.label}</p><p className="text-lg font-semibold tabular-nums">{metric.value}</p></div>)}
+        </div>;
+      })()}
     </article>
   );
 }

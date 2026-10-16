@@ -11,6 +11,7 @@ export type Ad = {
   format: string;
   clicks: number;
   spent: number;
+  conversations?: number;
   status: 'Ativo' | 'Pausado';
 };
 

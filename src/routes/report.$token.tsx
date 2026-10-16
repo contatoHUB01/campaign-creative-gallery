@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useSuspenseQuery, queryOptions } from '@tanstack/react-query';
-import { LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon } from 'lucide-react';
+import { LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, MessageCircle } from 'lucide-react';
 import { CreativeCard } from '@/components/creative-card';
 import { currency, number } from '@/lib/ads';
 import { getSharedCampaignReport } from '@/lib/reportLinks.functions';
@@ -35,6 +35,8 @@ function SharedCampaignReport() {
   const spent = report.totals?.spent ?? 0;
   const showClicks = report.configuration?.visibility.clicks ?? true;
   const showSpent = report.configuration?.visibility.spent ?? true;
+  const showConversations = report.configuration?.visibility.conversations ?? false;
+  const conversations = report.totals?.conversations ?? 0;
   return <div className="min-h-screen">
     <header className="border-b border-border bg-card"><div className="mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-6 sm:px-10"><div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Sparkles size={21} /></span><span className="text-[23px] font-extrabold">criativa<span className="text-primary">.</span></span></div><div className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium"><MetaIcon className="text-primary" size={21} />Meta Ads</div></div></header>
     <main className="mx-auto max-w-[1240px] px-6 pb-12 pt-9 sm:px-10 sm:pt-11">
@@ -45,9 +47,11 @@ function SharedCampaignReport() {
           ...(showClicks ? [{ label: 'Total de cliques', value: number(clicks), icon: MousePointer2, note: 'Interações com os anúncios' }] : []),
           ...(showSpent ? [{ label: 'Investimento total', value: currency(spent), icon: Wallet, note: 'Valor gasto no período' }] : []),
           ...(showClicks && showSpent ? [{ label: 'Custo por clique', value: currency(clicks ? spent / clicks : 0), icon: CircleDollarSign, note: 'Média dos criativos' }] : []),
+          ...(showConversations ? [{ label: 'Conversas iniciadas', value: number(conversations), icon: MessageCircle, note: 'Conversas por mensagem' }] : []),
+          ...(showConversations && showSpent ? [{ label: 'Custo por conversa', value: currency(conversations ? spent / conversations : 0), icon: CircleDollarSign, note: 'Investimento ÷ conversas' }] : []),
         ].map(item => <div key={item.label}><div className="mb-3 flex items-center gap-2 text-[12px] text-muted-foreground"><item.icon size={15} />{item.label}</div><p className="text-[27px] font-semibold leading-none tabular-nums">{item.value}</p><p className="mt-3 text-[11px] text-muted-foreground">{item.note}</p></div>)}</section>
         <div className="mb-5 flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Criativos selecionados</h2><span className="text-xs text-muted-foreground">{ads.length} anúncios</span></div>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{ads.map(ad => <CreativeCard key={ad.id} ad={ad} showClicks={showClicks} showSpent={showSpent} />)}</div>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{ads.map(ad => <CreativeCard key={ad.id} ad={ad} showClicks={showClicks} showSpent={showSpent} showConversations={showConversations} />)}</div>
       </>}
     </main>
   </div>;
