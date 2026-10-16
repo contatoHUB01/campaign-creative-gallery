@@ -127,8 +127,8 @@ function RootComponent() {
       // Defer cache work until the auth callback releases the client's lock.
       queueMicrotask(() => {
         if (event === 'SIGNED_OUT') {
-          void queryClient.cancelQueries({ queryKey: metaAdsQueryOptions.queryKey }).then(() => {
-            queryClient.setQueryData(metaAdsQueryOptions.queryKey, signedOutReport);
+          void queryClient.cancelQueries({ queryKey: metaAdsQueryOptions().queryKey.slice(0, 2) }).then(() => {
+            queryClient.setQueriesData({ queryKey: metaAdsQueryOptions().queryKey.slice(0, 2) }, signedOutReport);
             void router.invalidate();
           });
         } else {
