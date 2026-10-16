@@ -13,7 +13,7 @@ export async function buscarCriativosMeta(accountId: string, period?: Period): P
   const { data } = await supabase.auth.getSession();
   if (!data.session) return signedOutReport;
   try {
-    return await buscarCriativosMetaServer({ data: { accountId, period } });
+    return await buscarCriativosMetaServer({ data: period ? { accountId, period } : { accountId } });
   } catch (error) {
     console.error('Erro no Servidor Seguro:', error);
     throw error;
