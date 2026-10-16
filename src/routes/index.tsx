@@ -22,6 +22,8 @@ export const Route = createFileRoute('/')({
     status: search['status'] === 'Ativo' || search['status'] === 'Pausado' ? search['status'] : 'Todos',
     campaign: typeof search['campaign'] === 'string' ? search['campaign'] : 'Todas',
     sort: search['sort'] === 'clicks' || search['sort'] === 'spent' ? search['sort'] : 'recent',
+    since: typeof search['since'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search['since']) ? search['since'] : '',
+    until: typeof search['until'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search['until']) ? search['until'] : '',
   }),
   pendingComponent: () => <div className="flex min-h-screen items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>,
   errorComponent: ReportError,
@@ -43,20 +45,24 @@ function ReportError() {
 }
 
 function Index() {
-  const { data: report = signedOutReport, isFetching, isError, refetch } = useQuery(metaAdsQueryOptions);
+  const { q: search, status, campaign, sort, since, until } = Route.useSearch();
+  const period = since && until && since <= until ? { since, until } : undefined;
+  const { data: report = signedOutReport, isFetching, isError, refetch } = useQuery(metaAdsQueryOptions(period));
   const ads = report.ads;
-  const { q: search, status, campaign, sort } = Route.useSearch();
   const navigate = Route.useNavigate();
   const setSearch = (q: string) => { void navigate({ search: previous => ({ ...previous, q }), replace: true }); };
   const setStatus = (status: string) => { void navigate({ search: previous => ({ ...previous, status }), replace: true }); };
   const setCampaign = (campaign: string) => { void navigate({ search: previous => ({ ...previous, campaign }), replace: true }); };
   const setSort = (sort: string) => { void navigate({ search: previous => ({ ...previous, sort }), replace: true }); };
+  const setSince = (since: string) => { void navigate({ search: previous => ({ ...previous, since }), replace: true }); };
+  const setUntil = (until: string) => { void navigate({ search: previous => ({ ...previous, until }), replace: true }); };
   const campaigns = [...new Set(ads.map(ad => ad.campaign))];
   const visible = ads.filter(ad => (status === 'Todos' || ad.status === status) && (campaign === 'Todas' || ad.campaign === campaign) && `${ad.title} ${ad.copy} ${ad.campaign}`.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))).sort((a, b) => sort === 'clicks' ? b.clicks - a.clicks : sort === 'spent' ? b.spent - a.spent : 0);
   const clicks = visible.reduce((sum, ad) => sum + ad.clicks, 0);
   const spent = visible.reduce((sum, ad) => sum + ad.spent, 0);
-  const filtered = search || status !== 'Todos' || campaign !== 'Todas';
-  const reset = () => { void navigate({ search: previous => ({ ...previous, q: '', status: 'Todos', campaign: 'Todas' }), replace: true }); };
+  const filtered = search || status !== 'Todos' || campaign !== 'Todas' || since || until;
+  const invalidPeriod = Boolean(since && until && since > until);
+  const reset = () => { void navigate({ search: previous => ({ ...previous, q: '', status: 'Todos', campaign: 'Todas', since: '', until: '' }), replace: true }); };
   if (!isFetching && !isError && report.requiresLogin) {
     return <main className="flex min-h-screen flex-col items-center justify-center px-6"><div className="flex items-center gap-2 text-3xl font-extrabold"><Sparkles className="text-primary" />criativa<span className="text-primary">.</span></div><MetaLogin /></main>;
   }
@@ -94,6 +100,8 @@ function Index() {
           <Select value={campaign} onValueChange={setCampaign}><SelectTrigger aria-label="Filtrar campanha" className="h-10 w-[190px] bg-card text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Todas">Todas as campanhas</SelectItem>{campaigns.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select>
           <Select value={status} onValueChange={setStatus}><SelectTrigger aria-label="Filtrar status" className="h-10 w-[145px] bg-card text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Todos">Todos os status</SelectItem><SelectItem value="Ativo">Ativos</SelectItem><SelectItem value="Pausado">Pausados</SelectItem></SelectContent></Select>
           <Select value={sort} onValueChange={setSort}><SelectTrigger aria-label="Ordenar criativos" className="h-10 w-[165px] bg-card text-xs"><SlidersHorizontal size={13} /><SelectValue /></SelectTrigger><SelectContent><SelectItem value="recent">Mais recentes</SelectItem><SelectItem value="clicks">Mais cliques</SelectItem><SelectItem value="spent">Maior gasto</SelectItem></SelectContent></Select>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><label className="flex items-center gap-1">De<input type="date" aria-label="Data inicial" value={since} max={until || undefined} onChange={event => setSince(event.target.value)} className="h-10 rounded-md border border-input bg-card px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring" /></label><label className="flex items-center gap-1">até<input type="date" aria-label="Data final" value={until} min={since || undefined} onChange={event => setUntil(event.target.value)} className="h-10 rounded-md border border-input bg-card px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring" /></label></div>
+          {invalidPeriod && <span className="text-xs text-destructive" role="alert">A data final deve ser posterior à inicial.</span>}
           {filtered && <Button variant="ghost" size="icon" aria-label="Limpar filtros" title="Limpar filtros" onClick={reset}><X /></Button>}
         </div>
         {isFetching && <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>}
