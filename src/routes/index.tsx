@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { ArrowDownToLine, ArrowUpRight, Search, SlidersHorizontal, LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, MessageCircle, ChevronDown, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -49,7 +50,19 @@ function ReportError() {
 function Index() {
   const { q: search, status, campaign, sort, since, until } = Route.useSearch();
   const period = since && until && since <= until ? { since, until } : undefined;
-  const { data: report = signedOutReport, isFetching, isError, refetch } = useQuery(metaAdsQueryOptions(period));
+  const hasFilters = Boolean(search) || status !== 'Todos' || campaign.length > 0 || Boolean(since) || Boolean(until);
+  // The panel starts empty: nothing is fetched from Meta until filters are applied.
+  const [sessionState, setSessionState] = useState<'checking' | 'in' | 'out'>('checking');
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getSession().then(({ data }) => { if (active) setSessionState(data.session ? 'in' : 'out'); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(event => {
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') setSessionState('in');
+      if (event === 'SIGNED_OUT') setSessionState('out');
+    });
+    return () => { active = false; subscription.unsubscribe(); };
+  }, []);
+  const { data: report = signedOutReport, isFetching, isError, refetch } = useQuery({ ...metaAdsQueryOptions(period), enabled: hasFilters });
   const ads = report.ads;
   const navigate = Route.useNavigate();
   const setSearch = (q: string) => { void navigate({ search: previous => ({ ...previous, q }), replace: true }); };
