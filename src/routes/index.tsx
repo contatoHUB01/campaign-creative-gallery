@@ -125,12 +125,20 @@ function Index() {
           {invalidPeriod && <span className="text-xs text-destructive" role="alert">A data final deve ser posterior à inicial.</span>}
           {filtered && <Button variant="ghost" size="icon" aria-label="Limpar filtros" title="Limpar filtros" onClick={reset}><X /></Button>}
         </div>
-        {isFetching && <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>}
-        {!isFetching && isError && <div className="flex min-h-[280px] items-center justify-center px-6 text-center" role="alert"><p className="max-w-xl text-sm font-medium text-foreground">Falha ao conectar com o Servidor Seguro. Abra as Ferramentas de Programador (F12) para ver o erro no Console.</p></div>}
-        {!isFetching && !isError && report.requiresLogin && <MetaLogin />}
-        {!isFetching && !isError && report.error && !report.requiresLogin && <div className="py-12 text-center" role="alert"><h3 className="font-semibold">Não foi possível carregar os criativos</h3><p className="mt-2 text-sm text-muted-foreground">{report.error}</p><Button variant="outline" className="mt-5" onClick={() => { void refetch(); }}>Tentar novamente</Button></div>}
-        {!isFetching && !isError && !report.error && <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{visible.map(ad => <CreativeCard key={ad.id} ad={ad} />)}</div>}
-        {!isFetching && !isError && !report.error && visible.length === 0 && <div className="py-20 text-center"><Search className="mx-auto mb-3 text-muted-foreground" size={28} /><h3 className="font-semibold">Nenhum criativo encontrado</h3><p className="mt-2 text-sm text-muted-foreground">{filtered ? 'Tente outro termo ou ajuste os filtros.' : 'A Meta não retornou criativos para esta conta.'}</p>{filtered && <Button variant="outline" className="mt-5" onClick={reset}>Limpar filtros</Button>}</div>}
+        {hasFilters ? <>
+          {isFetching && <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>}
+          {!isFetching && isError && <div className="flex min-h-[280px] items-center justify-center px-6 text-center" role="alert"><p className="max-w-xl text-sm font-medium text-foreground">Falha ao conectar com o Servidor Seguro. Abra as Ferramentas de Programador (F12) para ver o erro no Console.</p></div>}
+          {!isFetching && !isError && report.requiresLogin && <MetaLogin />}
+          {!isFetching && !isError && report.error && !report.requiresLogin && <div className="py-12 text-center" role="alert"><h3 className="font-semibold">Não foi possível carregar os criativos</h3><p className="mt-2 text-sm text-muted-foreground">{report.error}</p><Button variant="outline" className="mt-5" onClick={() => { void refetch(); }}>Tentar novamente</Button></div>}
+          {!isFetching && !isError && !report.error && <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{visible.map(ad => <CreativeCard key={ad.id} ad={ad} />)}</div>}
+          {!isFetching && !isError && !report.error && visible.length === 0 && <div className="py-20 text-center"><Search className="mx-auto mb-3 text-muted-foreground" size={28} /><h3 className="font-semibold">Nenhum criativo encontrado</h3><p className="mt-2 text-sm text-muted-foreground">{filtered ? 'Tente outro termo ou ajuste os filtros.' : 'A Meta não retornou criativos para esta conta.'}</p>{filtered && <Button variant="outline" className="mt-5" onClick={reset}>Limpar filtros</Button>}</div>}
+        </> : (
+          <section className="my-10 flex flex-col items-center justify-center rounded-xl border border-border bg-card px-6 py-16 text-center">
+            <SlidersHorizontal className="text-muted-foreground" size={26} />
+            <h2 className="mt-4 text-lg font-bold">Comece aplicando os filtros</h2>
+            <p className="mt-2 max-w-md text-sm text-muted-foreground">Escolha o período, as campanhas ou o status para consultar os criativos. Nada é carregado da Meta até você definir os filtros.</p>
+          </section>
+        )}
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5 text-[11px] text-muted-foreground"><span>Exibindo {visible.length} de {ads.length} criativos</span><span className="flex items-center gap-1">Cada ideia, um novo resultado.<ArrowUpRight size={13} className="text-primary" /></span></footer>
       </main>
     </div>
