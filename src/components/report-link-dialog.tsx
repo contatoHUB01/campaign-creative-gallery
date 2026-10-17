@@ -58,7 +58,7 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
 
   function resetBuilder() {
     setEditingId(null); setTitle('Relatório de campanhas'); setSelectedCampaigns(campaigns); setSelectedAds([]); setStatuses(['Ativo', 'Pausado']);
-    setSince(monthAgo); setUntil(today); setUseCurrentFilters(true); setSavedFilters(null); setShowClicks(true); setShowSpent(true); setClicksOverride(''); setSpentOverride(''); setCreatedUrl(''); setStep('content');
+    setSince(monthAgo); setUntil(today); setUseCurrentFilters(true); setSavedFilters(null); setShowClicks(true); setShowSpent(true); setShowConversations(true); setClicksOverride(''); setSpentOverride(''); setCreatedUrl(''); setStep('content');
   }
 
   function editReport(link: CampaignReportLink) {

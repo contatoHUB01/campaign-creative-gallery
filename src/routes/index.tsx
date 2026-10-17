@@ -1,8 +1,10 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownToLine, ArrowUpRight, Search, SlidersHorizontal, LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, X, Loader2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpRight, Search, SlidersHorizontal, LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, MessageCircle, ChevronDown, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CreativeCard } from '@/components/creative-card';
 import { currency, number } from '@/lib/ads';
 import { metaAdsQueryOptions, signedOutReport } from '@/lib/metaApi';
@@ -20,7 +22,7 @@ export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
     q: typeof search['q'] === 'string' ? search['q'] : '',
     status: search['status'] === 'Ativo' || search['status'] === 'Pausado' ? search['status'] : 'Todos',
-    campaign: typeof search['campaign'] === 'string' ? search['campaign'] : 'Todas',
+    campaign: Array.isArray(search['campaign']) ? search['campaign'].filter((name): name is string => typeof name === 'string') : typeof search['campaign'] === 'string' && search['campaign'] !== 'Todas' ? [search['campaign']] : [] as string[],
     sort: search['sort'] === 'clicks' || search['sort'] === 'spent' ? search['sort'] : 'recent',
     since: typeof search['since'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search['since']) ? search['since'] : '',
     until: typeof search['until'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search['until']) ? search['until'] : '',
@@ -52,22 +54,24 @@ function Index() {
   const navigate = Route.useNavigate();
   const setSearch = (q: string) => { void navigate({ search: previous => ({ ...previous, q }), replace: true }); };
   const setStatus = (status: string) => { void navigate({ search: previous => ({ ...previous, status }), replace: true }); };
-  const setCampaign = (campaign: string) => { void navigate({ search: previous => ({ ...previous, campaign }), replace: true }); };
+  const setCampaign = (campaign: string[]) => { void navigate({ search: previous => ({ ...previous, campaign }), replace: true }); };
   const setSort = (sort: string) => { void navigate({ search: previous => ({ ...previous, sort }), replace: true }); };
   const setSince = (since: string) => { void navigate({ search: previous => ({ ...previous, since }), replace: true }); };
   const setUntil = (until: string) => { void navigate({ search: previous => ({ ...previous, until }), replace: true }); };
   const campaigns = [...new Set(ads.map(ad => ad.campaign))];
-  const visible = ads.filter(ad => (status === 'Todos' || ad.status === status) && (campaign === 'Todas' || ad.campaign === campaign) && `${ad.title} ${ad.copy} ${ad.campaign}`.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))).sort((a, b) => sort === 'clicks' ? b.clicks - a.clicks : sort === 'spent' ? b.spent - a.spent : 0);
+  const visible = ads.filter(ad => (status === 'Todos' || ad.status === status) && (!campaign.length || campaign.includes(ad.campaign)) && `${ad.title} ${ad.copy} ${ad.campaign}`.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))).sort((a, b) => sort === 'clicks' ? b.clicks - a.clicks : sort === 'spent' ? b.spent - a.spent : 0);
   const clicks = visible.reduce((sum, ad) => sum + ad.clicks, 0);
   const spent = visible.reduce((sum, ad) => sum + ad.spent, 0);
-  const filtered = search || status !== 'Todos' || campaign !== 'Todas' || since || until;
+  const conversations = visible.reduce((sum, ad) => sum + (ad.conversations ?? 0), 0);
+  const toggleCampaign = (name: string) => setCampaign(campaign.includes(name) ? campaign.filter(item => item !== name) : [...campaign, name]);
+  const filtered = search || status !== 'Todos' || campaign.length > 0 || since || until;
   const invalidPeriod = Boolean(since && until && since > until);
-  const reset = () => { void navigate({ search: previous => ({ ...previous, q: '', status: 'Todos', campaign: 'Todas', since: '', until: '' }), replace: true }); };
+  const reset = () => { void navigate({ search: previous => ({ ...previous, q: '', status: 'Todos', campaign: [], since: '', until: '' }), replace: true }); };
   if (!isFetching && !isError && report.requiresLogin) {
     return <main className="flex min-h-screen flex-col items-center justify-center px-6"><div className="flex items-center gap-2 text-3xl font-extrabold"><Sparkles className="text-primary" />criativa<span className="text-primary">.</span></div><MetaLogin /></main>;
   }
   function exportReport() {
-    const rows = [['Campanha', 'Título', 'Copy', 'Formato', 'Cliques', 'Valor gasto (BRL)', 'Status'], ...visible.map(ad => [ad.campaign, ad.title, ad.copy, ad.format, String(ad.clicks), ad.spent.toFixed(2), ad.status])];
+    const rows = [['Campanha', 'Título', 'Copy', 'Formato', 'Cliques', 'Valor gasto (BRL)', 'Conversas', 'Status'], ...visible.map(ad => [ad.campaign, ad.title, ad.copy, ad.format, String(ad.clicks), ad.spent.toFixed(2), String(ad.conversations ?? 0), ad.status])];
     const blob = new Blob(['\uFEFF' + rows.map(row => row.map(cell => `"${cell.replaceAll('"', '""')}"`).join(';')).join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a'); link.href = url; link.download = 'relatorio-criativos.csv'; link.click(); URL.revokeObjectURL(url);
@@ -92,12 +96,14 @@ function Index() {
             { label: 'Total de cliques', value: number(clicks), icon: MousePointer2, note: 'Interações com os anúncios' },
             { label: 'Investimento total', value: currency(spent), icon: Wallet, note: 'Valor gasto no período' },
             { label: 'Custo por clique', value: currency(clicks ? spent / clicks : 0), icon: CircleDollarSign, note: 'Média entre os criativos' },
+            { label: 'Conversas iniciadas', value: number(conversations), icon: MessageCircle, note: 'Conversas por mensagem' },
+            { label: 'Custo por conversa', value: currency(conversations ? spent / conversations : 0), icon: CircleDollarSign, note: 'Investimento ÷ conversas' },
           ].map(item => <div key={item.label}><div className="mb-3 flex items-center gap-2 text-[12px] text-muted-foreground"><item.icon size={15} />{item.label}</div><p className="text-[27px] font-semibold leading-none tabular-nums">{item.value}</p><p className="mt-3 text-[11px] text-muted-foreground">{item.note}</p></div>)}
         </section>
         <div className="mb-5 flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-lg font-bold">Todos os criativos <span className="rounded-md bg-accent px-2 py-0.5 text-xs font-semibold text-primary">{visible.length}</span></h2><span className="flex items-center gap-1 text-[11px] text-muted-foreground"><LayoutGrid size={13} />Galeria de anúncios</span></div>
         <div className="mb-6 flex flex-wrap items-center gap-3">
           <div className="relative min-w-[200px] flex-1"><Search size={16} className="absolute left-3 top-3 text-muted-foreground" /><input aria-label="Buscar criativos" placeholder="Buscar por título ou campanha..." value={search} onChange={event => setSearch(event.target.value)} className="h-10 w-full rounded-md border border-input bg-card pl-10 pr-3 text-xs outline-none focus:ring-1 focus:ring-ring" /></div>
-          <Select value={campaign} onValueChange={setCampaign}><SelectTrigger aria-label="Filtrar campanha" className="h-10 w-[190px] bg-card text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Todas">Todas as campanhas</SelectItem>{campaigns.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select>
+          <Popover><PopoverTrigger asChild><Button variant="outline" aria-label="Filtrar campanhas" className="h-10 w-[210px] justify-between bg-card text-xs font-normal"><span className="truncate">{campaign.length === 0 ? 'Todas as campanhas' : campaign.length === 1 ? campaign[0] : `${campaign.length} campanhas`}</span><ChevronDown size={14} /></Button></PopoverTrigger><PopoverContent align="start" className="w-[300px] p-2"><div className="max-h-64 space-y-1 overflow-y-auto">{campaigns.length === 0 && <p className="p-2 text-xs text-muted-foreground">Nenhuma campanha.</p>}{campaigns.map(name => <label key={name} className="flex cursor-pointer items-start gap-2 rounded p-2 text-xs hover:bg-accent"><Checkbox checked={campaign.includes(name)} onCheckedChange={() => toggleCampaign(name)} /><span>{name}</span></label>)}</div>{campaign.length > 0 && <Button variant="ghost" size="sm" className="mt-1 w-full text-xs" onClick={() => setCampaign([])}>Todas as campanhas</Button>}</PopoverContent></Popover>
           <Select value={status} onValueChange={setStatus}><SelectTrigger aria-label="Filtrar status" className="h-10 w-[145px] bg-card text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Todos">Todos os status</SelectItem><SelectItem value="Ativo">Ativos</SelectItem><SelectItem value="Pausado">Pausados</SelectItem></SelectContent></Select>
           <Select value={sort} onValueChange={setSort}><SelectTrigger aria-label="Ordenar criativos" className="h-10 w-[165px] bg-card text-xs"><SlidersHorizontal size={13} /><SelectValue /></SelectTrigger><SelectContent><SelectItem value="recent">Mais recentes</SelectItem><SelectItem value="clicks">Mais cliques</SelectItem><SelectItem value="spent">Maior gasto</SelectItem></SelectContent></Select>
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><label className="flex items-center gap-1">De<input type="date" aria-label="Data inicial" value={since} max={until || undefined} onChange={event => setSince(event.target.value)} className="h-10 rounded-md border border-input bg-card px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring" /></label><label className="flex items-center gap-1">até<input type="date" aria-label="Data final" value={until} min={since || undefined} onChange={event => setUntil(event.target.value)} className="h-10 rounded-md border border-input bg-card px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring" /></label></div>
