@@ -170,11 +170,10 @@
 .status-paused { background: var(--paused-background); color: var(--muted-foreground); }
 .status-dot { width: 5px; height: 5px; background: currentColor; border-radius: 50%; }
 .platform-badge { position: absolute; bottom: 14px; left: 14px; display: flex; align-items: center; gap: 6px; background: var(--image-label); border-radius: 5px; padding: 6px 9px; font-size: 10px; font-weight: 500; }
-.report-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.report-summary > div + div { border-left: 1px solid var(--border); padding-left: 32px; }
+.report-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 24px 0; }
+.report-summary > div { padding: 0 20px; border-left: 1px solid var(--border); } .report-summary > div:first-child { border-left: none; padding-left: 0; }
 @media (max-width: 640px) {
   .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 16px; }
   .report-summary > div + div { padding-left: 16px; }
-  .report-summary > div:nth-child(3) { border-left: none; padding-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
