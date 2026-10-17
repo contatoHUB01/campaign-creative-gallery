@@ -30,3 +30,15 @@ describe('Saved report projection', () => {
     expect(reportConfigurationSchema.safeParse({ ...configuration, period: { since: '2026-10-15', until: '2026-10-01' } }).success).toBe(false);
   });
 });
+describe('Conversation metrics in shared reports', () => {
+  const withConv = rows.map(ad => ({ ...ad, conversations: 5 }));
+  it('hides conversations unless enabled', () => {
+    const result = projectSharedReport(withConv, configuration);
+    expect(result.totals).not.toHaveProperty('conversations');
+    expect(result.ads[0]?.conversations).toBe(0);
+  });
+  it('totals conversations across the selected campaigns when enabled', () => {
+    const result = projectSharedReport(withConv, { ...configuration, visibility: { ...configuration.visibility, conversations: true } });
+    expect(result.totals.conversations).toBe(10);
+  });
+});
