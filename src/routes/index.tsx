@@ -96,13 +96,13 @@ function Index() {
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-6 sm:px-10">
           <div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Sparkles size={21} /></span><span className="text-[23px] font-extrabold">criativa<span className="text-primary">.</span></span><span className="mx-5 hidden h-6 border-l border-border sm:block" /><span className="hidden text-sm font-medium text-muted-foreground sm:block">Relatório de anúncios</span></div>
-           <div className="flex items-center gap-3">{report.connected && <Button variant="ghost" size="sm" onClick={() => { void supabase.auth.signOut(); }}>Sair</Button>}<div className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium"><MetaIcon className="text-primary" size={21} />Meta Ads</div></div>
+           <div className="flex items-center gap-3">{<Button variant="ghost" size="sm" onClick={() => { void supabase.auth.signOut(); }}>Sair</Button>}<div className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium"><MetaIcon className="text-primary" size={21} />Meta Ads</div></div>
         </div>
       </header>
       <main className="mx-auto max-w-[1240px] px-6 pb-12 pt-9 sm:px-10 sm:pt-11">
         <div className="flex flex-wrap items-center justify-between gap-5">
           <div><div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />Visão de criativos</div><h1 className="text-[30px] font-bold leading-tight sm:text-[34px]">Criativos que contam histórias.</h1><p className="mt-3 text-sm text-muted-foreground">Uma visão clara dos seus anúncios e dos resultados de cada ideia.</p></div>
-          <div className="flex flex-wrap gap-2">{report.connected && <ReportLinkDialog ads={ads} filters={{ q: search, status, campaign, sort }} />}<Button variant="outline" className="bg-card" onClick={exportReport} disabled={!report.connected || isFetching}><ArrowDownToLine />Exportar relatório</Button></div>
+          <div className="flex flex-wrap gap-2">{<ReportLinkDialog ads={ads} filters={{ q: search, status, campaign, sort }} />}<Button variant="outline" className="bg-card" onClick={exportReport} disabled={!report.connected || isFetching}><ArrowDownToLine />Exportar relatório</Button></div>
         </div>
         {hasFilters && <div className="mt-7 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span className={`rounded border px-2 py-1 font-medium ${report.connected ? 'api-connected' : 'border-border bg-card'}`}>{report.connected ? 'Ligado à API' : 'API não conectada'}</span>{report.connected && <span>Anúncios, campanhas e métricas da Meta</span>}</div>}
         {hasFilters && <section aria-label="Resumo dos resultados" className="report-summary my-8 border-y border-border py-7">
