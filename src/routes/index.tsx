@@ -77,10 +77,12 @@ function Index() {
   const spent = visible.reduce((sum, ad) => sum + ad.spent, 0);
   const conversations = visible.reduce((sum, ad) => sum + (ad.conversations ?? 0), 0);
   const toggleCampaign = (name: string) => setCampaign(campaign.includes(name) ? campaign.filter(item => item !== name) : [...campaign, name]);
-  const filtered = search || status !== 'Todos' || campaign.length > 0 || since || until;
   const invalidPeriod = Boolean(since && until && since > until);
   const reset = () => { void navigate({ search: previous => ({ ...previous, q: '', status: 'Todos', campaign: [], since: '', until: '' }), replace: true }); };
-  if (!isFetching && !isError && report.requiresLogin) {
+  if (sessionState === 'checking') {
+    return <div className="flex min-h-screen items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>;
+  }
+  if (sessionState === 'out' || (!isFetching && !isError && report.requiresLogin)) {
     return <main className="flex min-h-screen flex-col items-center justify-center px-6"><div className="flex items-center gap-2 text-3xl font-extrabold"><Sparkles className="text-primary" />criativa<span className="text-primary">.</span></div><MetaLogin /></main>;
   }
   function exportReport() {
