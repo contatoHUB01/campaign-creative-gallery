@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Copy, Link2, Loader2, Pencil, Share2, Trash2 } from 'lucide-react';
+import { Copy, CopyPlus, Link2, Loader2, Pencil, Plus, Share2, Trash2 } from 'lucide-react';
 import { useServerFn } from '@tanstack/react-start';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,6 +8,10 @@ import { Input } from '@/components/ui/input';
 import { ACCOUNT_ID } from '@/lib/metaApi';
 import type { Ad } from '@/lib/ads';
 import { createCampaignReportLink, listCampaignReportLinks, revokeCampaignReportLink, updateCampaignReportLink, type CampaignReportLink, type ReportConfiguration } from '@/lib/reportLinks.functions';
+import type { CustomIndicator } from '@/lib/report-configuration';
+
+const metricLabels = { clicks: 'Cliques', spent: 'Investimento', conversations: 'Conversas' } as const;
+const selectClass = 'h-9 rounded-md border border-input bg-card px-2 text-xs';
 
 type CurrentFilters = { q: string; status: string; campaign: string[]; sort: string };
 
@@ -35,6 +39,7 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
   const [showConversations, setShowConversations] = useState(true);
   const [clicksOverride, setClicksOverride] = useState('');
   const [spentOverride, setSpentOverride] = useState('');
+  const [indicators, setIndicators] = useState<CustomIndicator[]>([]);
   const [links, setLinks] = useState<CampaignReportLink[]>([]);
   const [createdUrl, setCreatedUrl] = useState('');
   const [pending, setPending] = useState(false);
@@ -54,29 +59,32 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
       ...(clicksOverride === '' ? {} : { clicks: Number(clicksOverride) }),
       ...(spentOverride === '' ? {} : { spent: Number(spentOverride) }),
     },
+    customIndicators: indicators.filter(item => item.name.trim()),
   });
 
   function resetBuilder() {
     setEditingId(null); setTitle('Relatório de campanhas'); setSelectedCampaigns(campaigns); setSelectedAds([]); setStatuses(['Ativo', 'Pausado']);
-    setSince(monthAgo); setUntil(today); setUseCurrentFilters(true); setSavedFilters(null); setShowClicks(true); setShowSpent(true); setShowConversations(true); setClicksOverride(''); setSpentOverride(''); setCreatedUrl(''); setStep('content');
+    setSince(monthAgo); setUntil(today); setUseCurrentFilters(true); setSavedFilters(null); setShowClicks(true); setShowSpent(true); setShowConversations(true); setClicksOverride(''); setSpentOverride(''); setIndicators([]); setCreatedUrl(''); setStep('content');
   }
 
   function editReport(link: CampaignReportLink) {
     setEditingId(link.id); setTitle(link.title); setSelectedCampaigns(link.configuration.campaigns); setSelectedAds(link.configuration.adIds); setStatuses(link.configuration.statuses);
     setSince(link.configuration.period?.since ?? ''); setUntil(link.configuration.period?.until ?? ''); setUseCurrentFilters(Boolean(link.configuration.filters.q || link.configuration.filters.sort !== 'recent'));
     setSavedFilters(link.configuration.filters);
-    setShowClicks(link.configuration.visibility.clicks); setShowSpent(link.configuration.visibility.spent); setShowConversations(link.configuration.visibility.conversations); setClicksOverride(link.configuration.overrides.clicks?.toString() ?? ''); setSpentOverride(link.configuration.overrides.spent?.toString() ?? ''); setCreatedUrl(''); setStep('content');
+    setShowClicks(link.configuration.visibility.clicks); setShowSpent(link.configuration.visibility.spent); setShowConversations(link.configuration.visibility.conversations); setClicksOverride(link.configuration.overrides.clicks?.toString() ?? ''); setSpentOverride(link.configuration.overrides.spent?.toString() ?? ''); setIndicators(link.configuration.customIndicators ?? []); setCreatedUrl(''); setStep('content');
   }
 
-  async function saveReport() {
+  async function saveReport(asCopy = false) {
     if (!title.trim() || selectedCampaigns.length === 0 || statuses.length === 0 || pending) return;
     if (!since || !until || since > until) { setError('Selecione um período válido.'); return; }
     setPending(true); setError('');
     try {
-      if (editingId) {
+      if (editingId && !asCopy) {
         await updateLink({ data: { id: editingId, title, configuration: configuration() } });
       } else {
-        const result = await createLink({ data: { accountId: ACCOUNT_ID, title, configuration: configuration() } });
+        const copyTitle = asCopy ? `${title} (cópia)`.slice(0, 120) : title;
+        const result = await createLink({ data: { accountId: ACCOUNT_ID, title: copyTitle, configuration: configuration() } });
+        if (asCopy) setTitle(copyTitle);
         setEditingId(result.id);
         setCreatedUrl(`${window.location.origin}/report/${result.token}`);
       }
@@ -115,7 +123,19 @@ export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: Current
       {step === 'metrics' && <div className="space-y-5">
         <fieldset><legend className="mb-3 text-xs font-medium">Dados visíveis para o cliente</legend><div className="grid gap-3 sm:grid-cols-2"><label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><Checkbox checked={showClicks} onCheckedChange={value => setShowClicks(Boolean(value))} />Cliques</label><label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><Checkbox checked={showSpent} onCheckedChange={value => setShowSpent(Boolean(value))} />Investimento</label><label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><Checkbox checked={showConversations} onCheckedChange={value => setShowConversations(Boolean(value))} />Conversas e custo por conversa</label></div></fieldset>
         <div><h3 className="text-xs font-medium">Ajustes manuais dos totais</h3><p className="mt-1 text-xs text-muted-foreground">Deixe em branco para usar os valores reais da Meta. O dado original não será alterado.</p><div className="mt-3 grid gap-4 sm:grid-cols-2"><div><label htmlFor="clicks-override" className="mb-2 block text-xs">Total de cliques</label><Input id="clicks-override" type="number" min="0" value={clicksOverride} onChange={event => setClicksOverride(event.target.value)} placeholder="Valor real" /></div><div><label htmlFor="spent-override" className="mb-2 block text-xs">Investimento total</label><Input id="spent-override" type="number" min="0" step="0.01" value={spentOverride} onChange={event => setSpentOverride(event.target.value)} placeholder="Valor real" /></div></div></div>
-        <div className="flex justify-between"><Button variant="outline" onClick={() => setStep('content')}>Voltar</Button><Button onClick={() => { void saveReport(); }} disabled={pending}>{pending ? <Loader2 className="animate-spin" /> : <Link2 />}{editingId ? 'Atualizar relatório' : 'Gerar link único'}</Button></div>
+        <div><div className="flex items-center justify-between"><h3 className="text-xs font-medium">Indicadores personalizados</h3><Button type="button" size="sm" variant="outline" onClick={() => setIndicators(list => [...list, { id: crypto.randomUUID().slice(0, 8), name: '', format: 'number', kind: 'value', value: 0 }])}><Plus />Adicionar</Button></div><p className="mt-1 text-xs text-muted-foreground">Digite um valor fixo ou calcule a partir de cliques, investimento e conversas.</p>
+          <div className="mt-3 space-y-2">{indicators.map(item => { const patch = (next: Partial<CustomIndicator>) => setIndicators(list => list.map(i => i.id === item.id ? { ...i, ...next } : i)); return <div key={item.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2">
+            <Input aria-label="Nome do indicador" placeholder="Nome (ex.: Vendas)" value={item.name} maxLength={60} onChange={e => patch({ name: e.target.value })} className="h-9 w-40 text-xs" />
+            <select aria-label="Tipo" className={selectClass} value={item.kind} onChange={e => patch(e.target.value === 'formula' ? { kind: 'formula', left: item.left ?? 'spent', operator: item.operator ?? '/', right: item.right ?? 'conversations' } : { kind: 'value' })}><option value="value">Valor fixo</option><option value="formula">Fórmula</option></select>
+            {item.kind === 'value' ? <Input aria-label="Valor" type="number" step="any" value={item.value ?? 0} onChange={e => patch({ value: Number(e.target.value) || 0 })} className="h-9 w-28 text-xs" /> : <>
+              <select aria-label="Primeiro valor" className={selectClass} value={item.left} onChange={e => patch({ left: e.target.value as CustomIndicator['left'] })}>{Object.entries(metricLabels).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+              <select aria-label="Operação" className={selectClass} value={item.operator} onChange={e => patch({ operator: e.target.value as CustomIndicator['operator'] })}><option value="/">÷</option><option value="*">×</option><option value="+">+</option><option value="-">−</option></select>
+              <select aria-label="Segundo valor" className={selectClass} value={item.right} onChange={e => patch({ right: e.target.value as CustomIndicator['right'] })}>{Object.entries(metricLabels).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+            </>}
+            <select aria-label="Formato" className={selectClass} value={item.format} onChange={e => patch({ format: e.target.value as CustomIndicator['format'] })}><option value="number">Número</option><option value="currency">R$</option><option value="percent">%</option></select>
+            <Button type="button" size="icon" variant="ghost" aria-label="Remover indicador" onClick={() => setIndicators(list => list.filter(i => i.id !== item.id))}><Trash2 /></Button>
+          </div>; })}</div></div>
+        <div className="flex flex-wrap justify-between gap-2"><Button variant="outline" onClick={() => setStep('content')}>Voltar</Button><div className="flex flex-wrap gap-2">{editingId && <Button variant="outline" onClick={() => { void saveReport(true); }} disabled={pending}><CopyPlus />Salvar como cópia</Button>}<Button onClick={() => { void saveReport(); }} disabled={pending}>{pending ? <Loader2 className="animate-spin" /> : <Link2 />}{editingId ? 'Atualizar relatório' : 'Gerar link único'}</Button></div></div>
       </div>}
 
       {step === 'link' && <div className="space-y-5">
