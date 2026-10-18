@@ -1,6 +1,29 @@
 import { z } from 'zod';
 import type { Ad } from './ads';
 
+export const baseMetrics = ['clicks', 'spent', 'conversations'] as const;
+export type BaseMetric = typeof baseMetrics[number];
+export const customIndicatorSchema = z.object({
+  id: z.string().min(1).max(40),
+  name: z.string().trim().min(1).max(60),
+  format: z.enum(['number', 'currency', 'percent']),
+  kind: z.enum(['value', 'formula']),
+  value: z.number().finite().optional(),
+  left: z.enum(baseMetrics).optional(),
+  operator: z.enum(['+', '-', '*', '/']).optional(),
+  right: z.enum(baseMetrics).optional(),
+});
+export type CustomIndicator = z.infer<typeof customIndicatorSchema>;
+
+export function computeIndicator(indicator: CustomIndicator, totals: Record<BaseMetric, number>): number {
+  if (indicator.kind === 'value') return indicator.value ?? 0;
+  if (!indicator.left || !indicator.right || !indicator.operator) return 0;
+  const a = totals[indicator.left], b = totals[indicator.right];
+  const result = indicator.operator === '+' ? a + b : indicator.operator === '-' ? a - b : indicator.operator === '*' ? a * b : b ? a / b : 0;
+  const scaled = indicator.format === 'percent' ? result * 100 : result;
+  return Number.isFinite(scaled) ? scaled : 0;
+}
+
 export const reportConfigurationSchema = z.object({
   campaigns: z.array(z.string().trim().min(1).max(300)).min(1).max(1000),
   adIds: z.array(z.string()).max(1000).default([]),
@@ -9,6 +32,7 @@ export const reportConfigurationSchema = z.object({
   filters: z.object({ q: z.string().max(200).default(''), sort: z.enum(['recent', 'clicks', 'spent']).default('recent') }),
   visibility: z.object({ clicks: z.boolean(), spent: z.boolean(), conversations: z.boolean().default(false) }),
   overrides: z.object({ clicks: z.number().finite().int().nonnegative().optional(), spent: z.number().finite().nonnegative().optional() }),
+  customIndicators: z.array(customIndicatorSchema).max(20).default([]),
 });
 
 export type ReportConfiguration = z.infer<typeof reportConfigurationSchema>;
@@ -34,7 +58,14 @@ export function selectReportAds(ads: Ad[], configuration: ReportConfiguration): 
 
 export function projectSharedReport(ads: Ad[], configuration: ReportConfiguration) {
   const campaignAds = ads.filter(ad => configuration.campaigns.includes(ad.campaign));
+  const real = {
+    clicks: configuration.overrides.clicks ?? campaignAds.reduce((sum, ad) => sum + ad.clicks, 0),
+    spent: configuration.overrides.spent ?? campaignAds.reduce((sum, ad) => sum + ad.spent, 0),
+    conversations: campaignAds.reduce((sum, ad) => sum + (ad.conversations ?? 0), 0),
+  };
+  const custom = configuration.customIndicators.map(indicator => ({ id: indicator.id, name: indicator.name, format: indicator.format, value: computeIndicator(indicator, real) }));
   const totals = {
+    custom,
     ...(configuration.visibility.clicks ? { clicks: configuration.overrides.clicks ?? campaignAds.reduce((sum, ad) => sum + ad.clicks, 0) } : {}),
     ...(configuration.visibility.spent ? { spent: configuration.overrides.spent ?? campaignAds.reduce((sum, ad) => sum + ad.spent, 0) } : {}),
     ...(configuration.visibility.conversations ? { conversations: campaignAds.reduce((sum, ad) => sum + (ad.conversations ?? 0), 0) } : {}),
@@ -42,7 +73,7 @@ export function projectSharedReport(ads: Ad[], configuration: ReportConfiguratio
   return {
     ads: selectReportAds(ads, configuration).map(ad => ({ ...ad, clicks: configuration.visibility.clicks ? ad.clicks : 0, spent: configuration.visibility.spent ? ad.spent : 0, conversations: configuration.visibility.conversations ? (ad.conversations ?? 0) : 0 })),
     totals,
-    configuration: { ...configuration, overrides: {
+    configuration: { ...configuration, customIndicators: [], overrides: {
       ...(configuration.visibility.clicks && configuration.overrides.clicks !== undefined ? { clicks: configuration.overrides.clicks } : {}),
       ...(configuration.visibility.spent && configuration.overrides.spent !== undefined ? { spent: configuration.overrides.spent } : {}),
     } },
