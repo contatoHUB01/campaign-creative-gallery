@@ -65,7 +65,7 @@ export function projectSharedReport(ads: Ad[], configuration: ReportConfiguratio
   };
   const custom = configuration.customIndicators.map(indicator => ({ id: indicator.id, name: indicator.name, format: indicator.format, value: computeIndicator(indicator, real) }));
   const totals = {
-    custom,
+    ...(custom.length ? { custom } : {}),
     ...(configuration.visibility.clicks ? { clicks: configuration.overrides.clicks ?? campaignAds.reduce((sum, ad) => sum + ad.clicks, 0) } : {}),
     ...(configuration.visibility.spent ? { spent: configuration.overrides.spent ?? campaignAds.reduce((sum, ad) => sum + ad.spent, 0) } : {}),
     ...(configuration.visibility.conversations ? { conversations: campaignAds.reduce((sum, ad) => sum + (ad.conversations ?? 0), 0) } : {}),
