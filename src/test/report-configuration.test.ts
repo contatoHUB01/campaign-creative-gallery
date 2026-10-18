@@ -42,3 +42,11 @@ describe('Conversation metrics in shared reports', () => {
     expect(result.totals.conversations).toBe(10);
   });
 });
+
+import { computeIndicator } from '@/lib/report-configuration';
+describe('Custom indicators', () => {
+  const totals = { clicks: 200, spent: 100, conversations: 4 };
+  it('returns a fixed value', () => { expect(computeIndicator({ id: 'a', name: 'Vendas', format: 'number', kind: 'value', value: 12 }, totals)).toBe(12); });
+  it('divides metrics in a formula', () => { expect(computeIndicator({ id: 'b', name: 'CPA', format: 'currency', kind: 'formula', left: 'spent', operator: '/', right: 'conversations' }, totals)).toBe(25); });
+  it('returns 0 when dividing by zero', () => { expect(computeIndicator({ id: 'c', name: 'X', format: 'number', kind: 'formula', left: 'spent', operator: '/', right: 'conversations' }, { ...totals, conversations: 0 })).toBe(0); });
+});
