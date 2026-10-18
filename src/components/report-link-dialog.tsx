@@ -1,150 +1,78 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Copy, CopyPlus, Link2, Loader2, Pencil, Plus, Share2, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Copy, Eye, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useServerFn } from '@tanstack/react-start';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ACCOUNT_ID } from '@/lib/metaApi';
-import type { Ad } from '@/lib/ads';
 import { createCampaignReportLink, listCampaignReportLinks, revokeCampaignReportLink, updateCampaignReportLink, type CampaignReportLink, type ReportConfiguration } from '@/lib/reportLinks.functions';
-import type { CustomIndicator } from '@/lib/report-configuration';
 
-const metricLabels = { clicks: 'Cliques', spent: 'Investimento', conversations: 'Conversas' } as const;
-const selectClass = 'h-9 rounded-md border border-input bg-card px-2 text-xs';
+type Props = {
+  configuration: ReportConfiguration | null;
+  editing: { id: string; title: string } | null;
+  onEdit: (link: CampaignReportLink) => void;
+  onSaved: (saved: { id: string; title: string }) => void;
+};
 
-type CurrentFilters = { q: string; status: string; campaign: string[]; sort: string };
-
-export function ReportLinkDialog({ ads, filters }: { ads: Ad[]; filters: CurrentFilters }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+/** Names the current panel state as a version and shares it through a public link. */
+export function ReportLinkDialog({ configuration, editing, onEdit, onSaved }: Props) {
   const listLinks = useServerFn(listCampaignReportLinks);
   const createLink = useServerFn(createCampaignReportLink);
   const updateLink = useServerFn(updateCampaignReportLink);
   const revokeLink = useServerFn(revokeCampaignReportLink);
-  const campaigns = useMemo(() => [...new Set(ads.map(ad => ad.campaign))], [ads]);
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<'content' | 'metrics' | 'link'>('content');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [title, setTitle] = useState('Relatório de campanhas');
-  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>(filters.campaign.length ? filters.campaign : campaigns);
-  const [selectedAds, setSelectedAds] = useState<string[]>([]);
-  const [statuses, setStatuses] = useState<Array<'Ativo' | 'Pausado'>>(filters.status === 'Ativo' || filters.status === 'Pausado' ? [filters.status] : ['Ativo', 'Pausado']);
-  const [since, setSince] = useState(monthAgo);
-  const [until, setUntil] = useState(today);
-  const [useCurrentFilters, setUseCurrentFilters] = useState(true);
-  const [savedFilters, setSavedFilters] = useState<ReportConfiguration['filters'] | null>(null);
-  const [showClicks, setShowClicks] = useState(true);
-  const [showSpent, setShowSpent] = useState(true);
-  const [showConversations, setShowConversations] = useState(true);
-  const [clicksOverride, setClicksOverride] = useState('');
-  const [spentOverride, setSpentOverride] = useState('');
-  const [indicators, setIndicators] = useState<CustomIndicator[]>([]);
+  const [title, setTitle] = useState('');
   const [links, setLinks] = useState<CampaignReportLink[]>([]);
-  const [createdUrl, setCreatedUrl] = useState('');
+  const [url, setUrl] = useState('');
+  const [message, setMessage] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => { if (open) void listLinks().then(setLinks).catch(() => setError('Não foi possível carregar os relatórios.')); }, [listLinks, open]);
+  useEffect(() => {
+    if (!open) return;
+    setTitle(editing?.title ?? 'Relatório de campanhas'); setUrl(''); setMessage(''); setError('');
+    void listLinks().then(setLinks).catch(() => setError('Não foi possível carregar as versões.'));
+  }, [open, editing, listLinks]);
 
-  const eligibleAds = ads.filter(ad => selectedCampaigns.includes(ad.campaign) && statuses.includes(ad.status));
-  const configuration = (): ReportConfiguration => ({
-    campaigns: selectedCampaigns,
-    adIds: selectedAds,
-    statuses,
-    period: since && until ? { since, until } : undefined,
-    filters: savedFilters ?? { q: useCurrentFilters ? filters.q : '', sort: useCurrentFilters && ['clicks', 'spent'].includes(filters.sort) ? filters.sort as 'clicks' | 'spent' : 'recent' },
-    visibility: { clicks: showClicks, spent: showSpent, conversations: showConversations },
-    overrides: {
-      ...(clicksOverride === '' ? {} : { clicks: Number(clicksOverride) }),
-      ...(spentOverride === '' ? {} : { spent: Number(spentOverride) }),
-    },
-    customIndicators: indicators.filter(item => item.name.trim()),
-  });
-
-  function resetBuilder() {
-    setEditingId(null); setTitle('Relatório de campanhas'); setSelectedCampaigns(campaigns); setSelectedAds([]); setStatuses(['Ativo', 'Pausado']);
-    setSince(monthAgo); setUntil(today); setUseCurrentFilters(true); setSavedFilters(null); setShowClicks(true); setShowSpent(true); setShowConversations(true); setClicksOverride(''); setSpentOverride(''); setIndicators([]); setCreatedUrl(''); setStep('content');
-  }
-
-  function editReport(link: CampaignReportLink) {
-    setEditingId(link.id); setTitle(link.title); setSelectedCampaigns(link.configuration.campaigns); setSelectedAds(link.configuration.adIds); setStatuses(link.configuration.statuses);
-    setSince(link.configuration.period?.since ?? ''); setUntil(link.configuration.period?.until ?? ''); setUseCurrentFilters(Boolean(link.configuration.filters.q || link.configuration.filters.sort !== 'recent'));
-    setSavedFilters(link.configuration.filters);
-    setShowClicks(link.configuration.visibility.clicks); setShowSpent(link.configuration.visibility.spent); setShowConversations(link.configuration.visibility.conversations); setClicksOverride(link.configuration.overrides.clicks?.toString() ?? ''); setSpentOverride(link.configuration.overrides.spent?.toString() ?? ''); setIndicators(link.configuration.customIndicators ?? []); setCreatedUrl(''); setStep('content');
-  }
-
-  async function saveReport(asCopy = false) {
-    if (!title.trim() || selectedCampaigns.length === 0 || statuses.length === 0 || pending) return;
-    if (!since || !until || since > until) { setError('Selecione um período válido.'); return; }
-    setPending(true); setError('');
+  async function save(asNew: boolean) {
+    if (!configuration || !title.trim() || pending) return;
+    setPending(true); setError(''); setMessage(''); setUrl('');
     try {
-      if (editingId && !asCopy) {
-        await updateLink({ data: { id: editingId, title, configuration: configuration() } });
+      if (editing && !asNew) {
+        await updateLink({ data: { id: editing.id, title, configuration } });
+        onSaved({ id: editing.id, title });
+        setMessage('Versão atualizada. O mesmo link já mostra as alterações.');
       } else {
-        const copyTitle = asCopy ? `${title} (cópia)`.slice(0, 120) : title;
-        const result = await createLink({ data: { accountId: ACCOUNT_ID, title: copyTitle, configuration: configuration() } });
-        if (asCopy) setTitle(copyTitle);
-        setEditingId(result.id);
-        setCreatedUrl(`${window.location.origin}/report/${result.token}`);
+        const result = await createLink({ data: { accountId: ACCOUNT_ID, title, configuration } });
+        onSaved({ id: result.id, title });
+        setUrl(`${window.location.origin}/report/${result.token}`);
       }
-      setLinks(await listLinks()); setStep('link');
+      setLinks(await listLinks());
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Não foi possível guardar o relatório.');
+      setError(cause instanceof Error ? cause.message : 'Não foi possível salvar a versão.');
     } finally { setPending(false); }
   }
 
-  async function handleRevoke(id: string) {
-    try {
-      await revokeLink({ data: { id } });
-      setLinks(current => current.map(link => link.id === id ? { ...link, revokedAt: new Date().toISOString() } : link));
-    } catch { setError('Não foi possível revogar o link.'); }
+  async function revoke(id: string) {
+    try { await revokeLink({ data: { id } }); setLinks(list => list.map(l => l.id === id ? { ...l, revokedAt: new Date().toISOString() } : l)); }
+    catch { setError('Não foi possível revogar o link.'); }
   }
 
-  const toggle = <T,>(list: T[], value: T, set: (next: T[]) => void) => set(list.includes(value) ? list.filter(item => item !== value) : [...list, value]);
   return <Dialog open={open} onOpenChange={setOpen}>
-    <DialogTrigger asChild><Button variant="outline" className="bg-card"><Share2 />Construir relatório</Button></DialogTrigger>
-    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-      <DialogHeader><DialogTitle>Construtor de relatório</DialogTitle><DialogDescription>Escolha o conteúdo, controle as métricas e gere um link único sem expiração.</DialogDescription></DialogHeader>
-      <div className="flex border-b border-border text-xs font-medium">
-        {([['content', '1. Conteúdo'], ['metrics', '2. Métricas'], ['link', '3. Link']] as const).map(([value, label]) => <Button key={value} type="button" variant="ghost" disabled={value === 'link' && !editingId} onClick={() => setStep(value)} className={`h-11 flex-1 rounded-none border-b-2 px-2 text-xs ${step === value ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}>{label}</Button>)}
-      </div>
-
-      {step === 'content' && <div className="space-y-5">
-        <div><label htmlFor="report-title" className="mb-2 block text-xs font-medium">Nome do relatório</label><Input id="report-title" value={title} onChange={event => setTitle(event.target.value)} /></div>
-        <div className="grid gap-4 sm:grid-cols-2"><div><label htmlFor="report-since" className="mb-2 block text-xs font-medium">Data inicial</label><Input id="report-since" type="date" value={since} max={until || today} onChange={event => setSince(event.target.value)} /></div><div><label htmlFor="report-until" className="mb-2 block text-xs font-medium">Data final</label><Input id="report-until" type="date" value={until} min={since} max={today} onChange={event => setUntil(event.target.value)} /></div></div>
-        <fieldset><legend className="mb-2 text-xs font-medium">Campanhas</legend><div className="grid max-h-40 gap-2 overflow-y-auto rounded-md border border-border p-3 sm:grid-cols-2">{campaigns.map(name => <label key={name} className="flex items-start gap-2 text-xs"><Checkbox checked={selectedCampaigns.includes(name)} onCheckedChange={() => toggle(selectedCampaigns, name, setSelectedCampaigns)} /><span>{name}</span></label>)}</div></fieldset>
-        <fieldset><legend className="mb-2 text-xs font-medium">Status</legend><div className="flex gap-5">{(['Ativo', 'Pausado'] as const).map(value => <label key={value} className="flex items-center gap-2 text-xs"><Checkbox checked={statuses.includes(value)} onCheckedChange={() => toggle(statuses, value, setStatuses)} />{value}</label>)}</div></fieldset>
-        <fieldset><legend className="mb-2 text-xs font-medium">Anúncios</legend><p className="mb-2 text-xs text-muted-foreground">Sem seleção, todos os anúncios das campanhas escolhidas serão incluídos.</p><div className="grid max-h-44 gap-2 overflow-y-auto rounded-md border border-border p-3 sm:grid-cols-2">{eligibleAds.map(ad => <label key={ad.id} className="flex items-start gap-2 text-xs"><Checkbox checked={selectedAds.includes(String(ad.id))} onCheckedChange={() => toggle(selectedAds, String(ad.id), setSelectedAds)} /><span>{ad.title}</span></label>)}</div></fieldset>
-        <label className="flex items-center gap-2 text-xs"><Checkbox checked={useCurrentFilters} onCheckedChange={value => { setUseCurrentFilters(Boolean(value)); setSavedFilters(null); }} />Usar a pesquisa e a ordenação atuais</label>
-        <div className="flex justify-end"><Button onClick={() => setStep('metrics')} disabled={!title.trim() || selectedCampaigns.length === 0 || statuses.length === 0}>Continuar</Button></div>
+    <DialogTrigger asChild><Button className="gap-2"><Eye />Gerar vista</Button></DialogTrigger>
+    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+      <DialogHeader><DialogTitle>Gerar vista do relatório</DialogTitle><DialogDescription>Dê um nome a esta versão. O link abre sem login e mostra só os criativos e indicadores definidos no painel.</DialogDescription></DialogHeader>
+      {!configuration ? <p className="text-sm text-muted-foreground">Aplique os filtros no painel e aguarde os criativos carregarem antes de gerar a vista.</p> : <div className="space-y-4">
+        <div><label htmlFor="version-title" className="mb-2 block text-xs font-medium">Nome da versão</label><Input id="version-title" value={title} maxLength={120} onChange={e => setTitle(e.target.value)} /></div>
+        <div className="flex flex-wrap justify-end gap-2">
+          {editing && <Button variant="outline" onClick={() => { void save(false); }} disabled={pending || !title.trim()}>Atualizar “{editing.title}”</Button>}
+          <Button onClick={() => { void save(true); }} disabled={pending || !title.trim()}>{pending && <Loader2 className="animate-spin" />}{editing ? 'Salvar como nova versão' : 'Salvar e gerar link'}</Button>
+        </div>
+        {url && <div className="rounded-md border border-border bg-muted p-3"><p className="mb-2 text-xs font-medium">Link pronto (não expira):</p><div className="flex gap-2 rounded-md border border-border bg-card p-2"><input readOnly aria-label="Link criado" value={url} className="min-w-0 flex-1 bg-transparent px-2 text-xs outline-none" /><Button size="icon" variant="ghost" aria-label="Copiar link" onClick={() => { void navigator.clipboard.writeText(url); }}><Copy /></Button></div></div>}
+        {message && <p className="text-sm text-primary">{message}</p>}
       </div>}
-
-      {step === 'metrics' && <div className="space-y-5">
-        <fieldset><legend className="mb-3 text-xs font-medium">Dados visíveis para o cliente</legend><div className="grid gap-3 sm:grid-cols-2"><label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><Checkbox checked={showClicks} onCheckedChange={value => setShowClicks(Boolean(value))} />Cliques</label><label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><Checkbox checked={showSpent} onCheckedChange={value => setShowSpent(Boolean(value))} />Investimento</label><label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><Checkbox checked={showConversations} onCheckedChange={value => setShowConversations(Boolean(value))} />Conversas e custo por conversa</label></div></fieldset>
-        <div><h3 className="text-xs font-medium">Ajustes manuais dos totais</h3><p className="mt-1 text-xs text-muted-foreground">Deixe em branco para usar os valores reais da Meta. O dado original não será alterado.</p><div className="mt-3 grid gap-4 sm:grid-cols-2"><div><label htmlFor="clicks-override" className="mb-2 block text-xs">Total de cliques</label><Input id="clicks-override" type="number" min="0" value={clicksOverride} onChange={event => setClicksOverride(event.target.value)} placeholder="Valor real" /></div><div><label htmlFor="spent-override" className="mb-2 block text-xs">Investimento total</label><Input id="spent-override" type="number" min="0" step="0.01" value={spentOverride} onChange={event => setSpentOverride(event.target.value)} placeholder="Valor real" /></div></div></div>
-        <div><div className="flex items-center justify-between"><h3 className="text-xs font-medium">Indicadores personalizados</h3><Button type="button" size="sm" variant="outline" onClick={() => setIndicators(list => [...list, { id: crypto.randomUUID().slice(0, 8), name: '', format: 'number', kind: 'value', value: 0 }])}><Plus />Adicionar</Button></div><p className="mt-1 text-xs text-muted-foreground">Digite um valor fixo ou calcule a partir de cliques, investimento e conversas.</p>
-          <div className="mt-3 space-y-2">{indicators.map(item => { const patch = (next: Partial<CustomIndicator>) => setIndicators(list => list.map(i => i.id === item.id ? { ...i, ...next } : i)); return <div key={item.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2">
-            <Input aria-label="Nome do indicador" placeholder="Nome (ex.: Vendas)" value={item.name} maxLength={60} onChange={e => patch({ name: e.target.value })} className="h-9 w-40 text-xs" />
-            <select aria-label="Tipo" className={selectClass} value={item.kind} onChange={e => patch(e.target.value === 'formula' ? { kind: 'formula', left: item.left ?? 'spent', operator: item.operator ?? '/', right: item.right ?? 'conversations' } : { kind: 'value' })}><option value="value">Valor fixo</option><option value="formula">Fórmula</option></select>
-            {item.kind === 'value' ? <Input aria-label="Valor" type="number" step="any" value={item.value ?? 0} onChange={e => patch({ value: Number(e.target.value) || 0 })} className="h-9 w-28 text-xs" /> : <>
-              <select aria-label="Primeiro valor" className={selectClass} value={item.left} onChange={e => patch({ left: e.target.value as CustomIndicator['left'] })}>{Object.entries(metricLabels).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-              <select aria-label="Operação" className={selectClass} value={item.operator} onChange={e => patch({ operator: e.target.value as CustomIndicator['operator'] })}><option value="/">÷</option><option value="*">×</option><option value="+">+</option><option value="-">−</option></select>
-              <select aria-label="Segundo valor" className={selectClass} value={item.right} onChange={e => patch({ right: e.target.value as CustomIndicator['right'] })}>{Object.entries(metricLabels).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-            </>}
-            <select aria-label="Formato" className={selectClass} value={item.format} onChange={e => patch({ format: e.target.value as CustomIndicator['format'] })}><option value="number">Número</option><option value="currency">R$</option><option value="percent">%</option></select>
-            <Button type="button" size="icon" variant="ghost" aria-label="Remover indicador" onClick={() => setIndicators(list => list.filter(i => i.id !== item.id))}><Trash2 /></Button>
-          </div>; })}</div></div>
-        <div className="flex flex-wrap justify-between gap-2"><Button variant="outline" onClick={() => setStep('content')}>Voltar</Button><div className="flex flex-wrap gap-2">{editingId && <Button variant="outline" onClick={() => { void saveReport(true); }} disabled={pending}><CopyPlus />Salvar como cópia</Button>}<Button onClick={() => { void saveReport(); }} disabled={pending}>{pending ? <Loader2 className="animate-spin" /> : <Link2 />}{editingId ? 'Atualizar relatório' : 'Gerar link único'}</Button></div></div>
-      </div>}
-
-      {step === 'link' && <div className="space-y-5">
-        <div className="rounded-md border border-border bg-muted p-4"><h3 className="text-sm font-semibold">{editingId && !createdUrl ? 'Relatório atualizado' : 'Link pronto para compartilhar'}</h3><p className="mt-1 text-xs text-muted-foreground">Este link não expira e continuará a mostrar as alterações futuras deste relatório.</p>{createdUrl && <div className="mt-3 flex gap-2 rounded-md border border-border bg-card p-2"><input readOnly aria-label="Link criado" value={createdUrl} className="min-w-0 flex-1 bg-transparent px-2 text-xs outline-none" /><Button size="icon" variant="ghost" aria-label="Copiar link" title="Copiar link" onClick={() => { void navigator.clipboard.writeText(createdUrl); }}><Copy /></Button></div>}</div>
-        <Button variant="outline" onClick={resetBuilder}>Criar outro relatório</Button>
-      </div>}
-
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
-      <div className="border-t border-border pt-4"><h3 className="mb-3 text-sm font-semibold">Relatórios criados</h3><div className="space-y-2">{links.length === 0 && <p className="text-xs text-muted-foreground">Nenhum relatório criado.</p>}{links.map(link => <div key={link.id} className="flex items-center justify-between gap-3 rounded-md border border-border p-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{link.title}</p><p className="truncate text-xs text-muted-foreground">{link.revokedAt ? 'Revogado' : `${link.campaigns.length} campanha(s) · atualizado ${new Intl.DateTimeFormat('pt-BR').format(new Date(link.updatedAt))}`}</p></div>{!link.revokedAt && <div className="flex"><Button size="icon" variant="ghost" aria-label="Editar relatório" title="Editar relatório" onClick={() => editReport(link)}><Pencil /></Button><Button size="icon" variant="ghost" aria-label="Revogar link" title="Revogar link" onClick={() => { void handleRevoke(link.id); }}><Trash2 /></Button></div>}</div>)}</div></div>
+      <div className="border-t border-border pt-4"><h3 className="mb-3 text-sm font-semibold">Versões salvas</h3><div className="space-y-2">{links.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma versão salva.</p>}{links.map(link => <div key={link.id} className="flex items-center justify-between gap-3 rounded-md border border-border p-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{link.title}</p><p className="truncate text-xs text-muted-foreground">{link.revokedAt ? 'Revogado' : `${link.campaigns.length} campanha(s) · atualizado ${new Intl.DateTimeFormat('pt-BR').format(new Date(link.updatedAt))}`}</p></div>{!link.revokedAt && <div className="flex"><Button size="icon" variant="ghost" aria-label="Abrir no painel para editar" title="Abrir no painel para editar" onClick={() => { onEdit(link); setOpen(false); }}><Pencil /></Button><Button size="icon" variant="ghost" aria-label="Revogar link" title="Revogar link" onClick={() => { void revoke(link.id); }}><Trash2 /></Button></div>}</div>)}</div></div>
     </DialogContent>
   </Dialog>;
 }
