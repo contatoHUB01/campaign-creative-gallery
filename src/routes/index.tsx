@@ -106,7 +106,7 @@ function Index() {
     setEditing({ id: link.id, title: link.title });
     setSelectedAds(c.adIds);
     setMetrics({ showClicks: c.visibility.clicks, showSpent: c.visibility.spent, showConversations: c.visibility.conversations, clicksOverride: c.overrides.clicks?.toString() ?? '', spentOverride: c.overrides.spent?.toString() ?? '', indicators: c.customIndicators ?? [] });
-    void navigate({ search: previous => ({ ...previous, q: c.filters.q, sort: c.filters.sort, campaign: c.campaigns, status: c.statuses.length === 1 ? c.statuses[0] : 'Todos', since: c.period?.since ?? '', until: c.period?.until ?? '' }), replace: true });
+    void navigate({ search: previous => ({ ...previous, q: c.filters.q, sort: c.filters.sort, campaign: c.campaigns, status: c.statuses.length === 1 ? (c.statuses[0] ?? 'Todos') : 'Todos', since: c.period?.since ?? '', until: c.period?.until ?? '' }), replace: true });
   }
   if (sessionState === 'checking') {
     return <div className="flex min-h-screen items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>;
