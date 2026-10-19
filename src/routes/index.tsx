@@ -12,6 +12,9 @@ import { metaAdsQueryOptions, signedOutReport } from '@/lib/metaApi';
 import { MetaLogin } from '@/components/meta-login';
 import { supabase } from '@/integrations/supabase/client';
 import { ReportLinkDialog } from '@/components/report-link-dialog';
+import { ReportMetricsPanel, defaultMetrics, type MetricsState } from '@/components/report-metrics-panel';
+import { computeIndicator, type ReportConfiguration } from '@/lib/report-configuration';
+import type { CampaignReportLink } from '@/lib/reportLinks.functions';
 
 export const Route = createFileRoute('/')({
   beforeLoad: ({ location }) => {
@@ -63,6 +66,9 @@ function Index() {
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
   const { data: report = signedOutReport, isFetching, isError, refetch } = useQuery({ ...metaAdsQueryOptions(period), enabled: hasFilters });
+  const [metrics, setMetrics] = useState<MetricsState>(defaultMetrics);
+  const [selectedAds, setSelectedAds] = useState<string[]>([]);
+  const [editing, setEditing] = useState<{ id: string; title: string } | null>(null);
   const ads = report.ads;
   const navigate = Route.useNavigate();
   const setSearch = (q: string) => { void navigate({ search: previous => ({ ...previous, q }), replace: true }); };
@@ -79,6 +85,29 @@ function Index() {
   const toggleCampaign = (name: string) => setCampaign(campaign.includes(name) ? campaign.filter(item => item !== name) : [...campaign, name]);
   const invalidPeriod = Boolean(since && until && since > until);
   const reset = () => { void navigate({ search: previous => ({ ...previous, q: '', status: 'Todos', campaign: [], since: '', until: '' }), replace: true }); };
+  const reportCampaigns = campaign.length ? campaign : campaigns;
+  const reportConfiguration: ReportConfiguration | null = report.connected && reportCampaigns.length ? {
+    campaigns: reportCampaigns,
+    adIds: selectedAds.filter(id => visible.some(ad => String(ad.id) === id)),
+    statuses: status === 'Todos' ? ['Ativo', 'Pausado'] : [status as 'Ativo' | 'Pausado'],
+    period,
+    filters: { q: search, sort: sort as 'recent' | 'clicks' | 'spent' },
+    visibility: { clicks: metrics.showClicks, spent: metrics.showSpent, conversations: metrics.showConversations },
+    overrides: { ...(metrics.clicksOverride === '' ? {} : { clicks: Math.round(Number(metrics.clicksOverride)) }), ...(metrics.spentOverride === '' ? {} : { spent: Number(metrics.spentOverride) }) },
+    customIndicators: metrics.indicators.filter(item => item.name.trim()),
+  } : null;
+  const reportAds = selectedAds.length ? visible.filter(ad => selectedAds.includes(String(ad.id))) : visible;
+  const shownClicks = metrics.clicksOverride === '' ? reportAds.reduce((s, ad) => s + ad.clicks, 0) : Number(metrics.clicksOverride);
+  const shownSpent = metrics.spentOverride === '' ? reportAds.reduce((s, ad) => s + ad.spent, 0) : Number(metrics.spentOverride);
+  const shownConversations = reportAds.reduce((s, ad) => s + (ad.conversations ?? 0), 0);
+  const toggleAd = (id: string) => setSelectedAds(list => list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
+  function loadVersion(link: CampaignReportLink) {
+    const c = link.configuration;
+    setEditing({ id: link.id, title: link.title });
+    setSelectedAds(c.adIds);
+    setMetrics({ showClicks: c.visibility.clicks, showSpent: c.visibility.spent, showConversations: c.visibility.conversations, clicksOverride: c.overrides.clicks?.toString() ?? '', spentOverride: c.overrides.spent?.toString() ?? '', indicators: c.customIndicators ?? [] });
+    void navigate({ search: previous => ({ ...previous, q: c.filters.q, sort: c.filters.sort, campaign: c.campaigns, status: c.statuses.length === 1 ? c.statuses[0] : 'Todos', since: c.period?.since ?? '', until: c.period?.until ?? '' }), replace: true });
+  }
   if (sessionState === 'checking') {
     return <div className="flex min-h-screen items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>;
   }
