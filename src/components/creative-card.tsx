@@ -4,11 +4,15 @@ import { currency, number, type Ad } from '@/lib/ads';
 
 export function CreativeCard({ ad, showClicks = true, showSpent = true, showConversations = true }: { ad: Ad; showClicks?: boolean; showSpent?: boolean; showConversations?: boolean }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const Platform = ad.format.includes('Instagram') ? Instagram : Facebook;
   return (
     <article className="creative-card overflow-hidden rounded-lg border border-border bg-card">
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-        {ad.imageUrl && !imageFailed ? <img src={ad.imageUrl} alt={ad.title} width={1024} height={1024} loading="lazy" onError={() => setImageFailed(true)} className="h-full w-full object-cover transition-transform duration-500" /> : <div className="flex h-full items-center justify-center text-muted-foreground" aria-label="Imagem indisponível"><ImageOff size={32} /></div>}
+        {ad.imageUrl && !imageFailed ? <>
+          {!imageLoaded && <div className="absolute inset-0 animate-pulse bg-muted" aria-hidden />}
+          <img src={ad.imageUrl} alt={ad.title} width={1024} height={1024} loading="lazy" decoding="async" onLoad={() => setImageLoaded(true)} onError={() => setImageFailed(true)} className={`h-full w-full object-cover transition-opacity duration-500 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`} />
+        </> : <div className="flex h-full items-center justify-center text-muted-foreground" aria-label="Imagem indisponível"><ImageOff size={32} /></div>}
         <span className={`status-badge ${ad.status === 'Ativo' ? 'status-active' : 'status-paused'}`}><span className="status-dot" />{ad.status}</span>
         <span className="platform-badge"><Platform size={13} />{ad.format}</span>
       </div>

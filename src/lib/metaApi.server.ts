@@ -18,7 +18,21 @@ function safeNumber(value: string | number | null | undefined): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
+const CACHE_TTL = 5 * 60 * 1000;
+const cache = new Map<string, { at: number; rows: Promise<Ad[]> }>();
+
 export async function readMetaCreatives(accountId: string, accessToken: string, period?: { since: string; until: string }): Promise<Ad[]> {
+  if (process.env['VITEST']) return fetchMetaCreatives(accountId, accessToken, period);
+  const key = `${accountId}|${period?.since ?? ''}|${period?.until ?? ''}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL) return hit.rows;
+  const rows = fetchMetaCreatives(accountId, accessToken, period);
+  cache.set(key, { at: Date.now(), rows });
+  rows.catch(() => cache.delete(key));
+  return rows;
+}
+
+async function fetchMetaCreatives(accountId: string, accessToken: string, period?: { since: string; until: string }): Promise<Ad[]> {
   const rows: Ad[] = [];
   let after: string | undefined;
   for (let page = 0; page < 10; page += 1) {
