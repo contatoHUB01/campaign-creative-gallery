@@ -21,18 +21,19 @@ function safeNumber(value: string | number | null | undefined): number {
 const CACHE_TTL = 5 * 60 * 1000;
 const cache = new Map<string, { at: number; rows: Promise<Ad[]> }>();
 
-export async function readMetaCreatives(accountId: string, accessToken: string, period?: { since: string; until: string }): Promise<Ad[]> {
-  if (process.env['VITEST']) return fetchMetaCreatives(accountId, accessToken, period);
-  const key = `${accountId}|${period?.since ?? ''}|${period?.until ?? ''}`;
+export async function readMetaCreatives(accountId: string, accessToken: string, period?: { since: string; until: string }, options: { activeOnly?: boolean; fresh?: boolean } = {}): Promise<Ad[]> {
+  const activeOnly = Boolean(options.activeOnly);
+  if (process.env['VITEST']) return fetchMetaCreatives(accountId, accessToken, period, activeOnly);
+  const key = `${accountId}|${period?.since ?? ''}|${period?.until ?? ''}|${activeOnly}`;
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL) return hit.rows;
-  const rows = fetchMetaCreatives(accountId, accessToken, period);
+  if (!options.fresh && hit && Date.now() - hit.at < CACHE_TTL) return hit.rows;
+  const rows = fetchMetaCreatives(accountId, accessToken, period, activeOnly);
   cache.set(key, { at: Date.now(), rows });
   rows.catch(() => cache.delete(key));
   return rows;
 }
 
-async function fetchMetaCreatives(accountId: string, accessToken: string, period?: { since: string; until: string }): Promise<Ad[]> {
+async function fetchMetaCreatives(accountId: string, accessToken: string, period: { since: string; until: string } | undefined, activeOnly: boolean): Promise<Ad[]> {
   const rows: Ad[] = [];
   let after: string | undefined;
   for (let page = 0; page < 10; page += 1) {
@@ -43,6 +44,8 @@ async function fetchMetaCreatives(accountId: string, accessToken: string, period
     url.searchParams.set('fields', `id,name,status,campaign{name},creative{name,image_url,body},${insightsField}`);
     url.searchParams.set('access_token', accessToken);
     url.searchParams.set('limit', '100');
+    // Ask Meta only for active ads when that is all the panel will show.
+    if (activeOnly) url.searchParams.set('effective_status', JSON.stringify(['ACTIVE']));
     if (after) url.searchParams.set('after', after);
     const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
     if (!response.ok) {

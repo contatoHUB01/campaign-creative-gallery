@@ -7,22 +7,22 @@ export const signedOutReport: MetaReport = { ads: [], connected: false, requires
 
 export type Period = { since: string; until: string };
 
-export async function buscarCriativosMeta(accountId: string, period?: Period): Promise<MetaReport> {
+export async function buscarCriativosMeta(accountId: string, period?: Period, options: { activeOnly?: boolean; fresh?: boolean } = {}): Promise<MetaReport> {
   // The public SSR screen must never call an authenticated function without a session.
   if (typeof window === 'undefined') return signedOutReport;
   const { data } = await supabase.auth.getSession();
   if (!data.session) return signedOutReport;
   try {
-    return await buscarCriativosMetaServer({ data: period ? { accountId, period } : { accountId } });
+    return await buscarCriativosMetaServer({ data: { accountId, ...(period ? { period } : {}), activeOnly: Boolean(options.activeOnly), fresh: Boolean(options.fresh) } });
   } catch (error) {
     console.error('Erro no Servidor Seguro:', error);
     throw error;
   }
 }
 
-export const metaAdsQueryOptions = (period?: Period) => queryOptions({
-  queryKey: ['metaAds', ACCOUNT_ID, period?.since ?? '', period?.until ?? ''],
-  queryFn: () => buscarCriativosMeta(ACCOUNT_ID, period),
+export const metaAdsQueryOptions = (period?: Period, activeOnly = false) => queryOptions({
+  queryKey: ['metaAds', ACCOUNT_ID, period?.since ?? '', period?.until ?? '', activeOnly ? 'active' : 'all'],
+  queryFn: () => buscarCriativosMeta(ACCOUNT_ID, period, { activeOnly }),
   staleTime: 15 * 60 * 1000,
   refetchOnMount: 'always',
   refetchOnWindowFocus: false,
