@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { ArrowDownToLine, ArrowUpRight, Search, SlidersHorizontal, LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, MessageCircle, ChevronDown, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { CreativeCard } from '@/components/creative-card';
 import { currency, number } from '@/lib/ads';
-import { metaAdsQueryOptions, signedOutReport } from '@/lib/metaApi';
+import { metaAdsQueryOptions, signedOutReport, buscarCriativosMeta, ACCOUNT_ID } from '@/lib/metaApi';
 import { MetaLogin } from '@/components/meta-login';
 import { supabase } from '@/integrations/supabase/client';
 import { ReportLinkDialog } from '@/components/report-link-dialog';
@@ -65,7 +65,10 @@ function Index() {
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
-  const { data: report = signedOutReport, isFetching, isError, refetch } = useQuery({ ...metaAdsQueryOptions(period), enabled: hasFilters });
+  const adsQuery = metaAdsQueryOptions(period, status === 'Ativo');
+  const { data: report = signedOutReport, isFetching, isError, refetch } = useQuery({ ...adsQuery, enabled: hasFilters });
+  const queryClient = useQueryClient();
+  const refreshNow = () => { void queryClient.fetchQuery({ ...adsQuery, staleTime: 0, queryFn: () => buscarCriativosMeta(ACCOUNT_ID, period, { activeOnly: status === 'Ativo', fresh: true }) }); };
   const [metrics, setMetrics] = useState<MetricsState>(defaultMetrics);
   const [selectedAds, setSelectedAds] = useState<string[]>([]);
   const [editing, setEditing] = useState<{ id: string; title: string } | null>(null);
@@ -133,7 +136,7 @@ function Index() {
           <div><div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />Visão de criativos</div><h1 className="text-[30px] font-bold leading-tight sm:text-[34px]">Criativos que contam histórias.</h1><p className="mt-3 text-sm text-muted-foreground">Uma visão clara dos seus anúncios e dos resultados de cada ideia.</p></div>
           <div className="flex flex-wrap items-center gap-2">{editing && <span className="rounded-md bg-accent px-2 py-1 text-xs text-primary">Editando: {editing.title} <button type="button" aria-label="Sair da edição" className="ml-1" onClick={() => setEditing(null)}>×</button></span>}<Button variant="outline" className="bg-card" onClick={exportReport} disabled={!report.connected || isFetching}><ArrowDownToLine />Exportar</Button><ReportLinkDialog configuration={reportConfiguration} editing={editing} onEdit={loadVersion} onSaved={setEditing} /></div>
         </div>
-        {hasFilters && <div className="mt-7 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span className={`rounded border px-2 py-1 font-medium ${report.connected ? 'api-connected' : 'border-border bg-card'}`}>{report.connected ? 'Ligado à API' : 'API não conectada'}</span>{report.connected && <span>Anúncios, campanhas e métricas da Meta</span>}</div>}
+        {hasFilters && <div className="mt-7 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span className={`rounded border px-2 py-1 font-medium ${report.connected ? 'api-connected' : 'border-border bg-card'}`}>{report.connected ? 'Ligado à API' : 'API não conectada'}</span>{report.connected && <span>Anúncios, campanhas e métricas da Meta</span>}{report.connected && <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={refreshNow} disabled={isFetching}>Atualizar agora</Button>}</div>}
         {hasFilters && <section aria-label="Resumo dos resultados" className="report-summary my-8 border-y border-border py-7">
           {[
             { label: 'Criativos no relatório', value: number(reportAds.length), icon: LayoutGrid, note: `${reportAds.filter(ad => ad.status === 'Ativo').length} ativos no período` },
