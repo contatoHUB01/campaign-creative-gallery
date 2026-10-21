@@ -20,7 +20,7 @@ export const buscarCriativosMetaServer = createServerFn({ method: 'POST' })
     const accessToken = process.env['META_ACCESS_TOKEN'];
     if (!accessToken) return { ads: [], connected: false, error: 'O token privado da Meta ainda não foi configurado.' };
     try {
-      return { ads: await readMetaCreatives(data.accountId, accessToken, data.period, { activeOnly: data.activeOnly, fresh: data.fresh }), connected: true, error: null };
+      return { ads: await readMetaCreatives(data.accountId, accessToken, data.period, { activeOnly: Boolean(data.activeOnly), fresh: Boolean(data.fresh) }), connected: true, error: null };
     } catch (error) {
       console.error('Erro ao consultar o servidor seguro da Meta:', error);
       throw error;
