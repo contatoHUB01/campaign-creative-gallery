@@ -1,4 +1,5 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
+import logo from '@/assets/logo-criativa.png.asset.json';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { ArrowDownToLine, ArrowUpRight, Search, SlidersHorizontal, LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, MessageCircle, ChevronDown, X, Loader2 } from 'lucide-react';
@@ -115,7 +116,7 @@ function Index() {
     return <div className="flex min-h-screen items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>;
   }
   if (sessionState === 'out' || (hasFilters && !isFetching && !isError && report.requiresLogin)) {
-    return <main className="flex min-h-screen flex-col items-center justify-center px-6"><div className="flex items-center gap-2 text-3xl font-extrabold"><Sparkles className="text-primary" />criativa<span className="text-primary">.</span></div><MetaLogin /></main>;
+    return <main className="flex min-h-screen flex-col items-center justify-center px-6"><div className="flex items-center gap-2 text-3xl font-extrabold"><img src={logo.url} alt="Criativa Marketing Digital" width={120} height={120} className="size-28 rounded-full" /></div><MetaLogin /></main>;
   }
   function exportReport() {
     const rows = [['Campanha', 'Título', 'Copy', 'Formato', 'Cliques', 'Valor gasto (BRL)', 'Conversas', 'Status'], ...visible.map(ad => [ad.campaign, ad.title, ad.copy, ad.format, String(ad.clicks), ad.spent.toFixed(2), String(ad.conversations ?? 0), ad.status])];
@@ -127,7 +128,7 @@ function Index() {
     <div className="min-h-screen">
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-6 sm:px-10">
-          <div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Sparkles size={21} /></span><span className="text-[23px] font-extrabold">criativa<span className="text-primary">.</span></span><span className="mx-5 hidden h-6 border-l border-border sm:block" /><span className="hidden text-sm font-medium text-muted-foreground sm:block">Relatório de anúncios</span></div>
+          <div className="flex items-center gap-3"><img src={logo.url} alt="Criativa Marketing Digital" width={44} height={44} className="size-11 rounded-full" /><span className="text-[23px] font-extrabold text-primary">criativa<span className="text-accent-brand">.</span></span><span className="mx-5 hidden h-6 border-l border-border sm:block" /><span className="hidden text-sm font-medium text-muted-foreground sm:block">Relatório de anúncios</span></div>
            <div className="flex items-center gap-3">{<Button variant="ghost" size="sm" onClick={() => { void supabase.auth.signOut(); }}>Sair</Button>}<div className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium"><MetaIcon className="text-primary" size={21} />Meta Ads</div></div>
         </div>
       </header>

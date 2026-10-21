@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import logo from '@/assets/logo-criativa.png.asset.json';
 import { useSuspenseQuery, queryOptions } from '@tanstack/react-query';
 import { LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, MessageCircle } from 'lucide-react';
 import { CreativeCard } from '@/components/creative-card';
@@ -38,7 +39,7 @@ function SharedCampaignReport() {
   const showConversations = report.configuration?.visibility.conversations ?? false;
   const conversations = report.totals?.conversations ?? 0;
   return <div className="min-h-screen">
-    <header className="border-b border-border bg-card"><div className="mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-6 sm:px-10"><div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Sparkles size={21} /></span><span className="text-[23px] font-extrabold">criativa<span className="text-primary">.</span></span></div><div className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium"><MetaIcon className="text-primary" size={21} />Meta Ads</div></div></header>
+    <header className="border-b border-border bg-card"><div className="mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-6 sm:px-10"><div className="flex items-center gap-3"><img src={logo.url} alt="Criativa Marketing Digital" width={44} height={44} className="size-11 rounded-full" /><span className="text-[23px] font-extrabold text-primary">criativa<span className="text-accent-brand">.</span></span></div><div className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium"><MetaIcon className="text-primary" size={21} />Meta Ads</div></div></header>
     <main className="mx-auto max-w-[1240px] px-6 pb-12 pt-9 sm:px-10 sm:pt-11">
       {report.error ? <div className="py-20 text-center" role="alert"><h1 className="text-xl font-semibold">Relatório indisponível</h1><p className="mt-3 text-sm text-muted-foreground">{report.error}</p></div> : <>
         <div><div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" />Relatório compartilhado</div><h1 className="text-[30px] font-bold leading-tight sm:text-[34px]">{report.title ?? report.campaignName}</h1><p className="mt-3 text-sm text-muted-foreground">{report.campaignName}</p></div>
