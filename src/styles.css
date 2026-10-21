@@ -63,25 +63,25 @@
 
 :root {
   --radius: 0.5rem;
-  --background: oklch(0.981 0.002 160);
-  --foreground: oklch(0.25 0.012 160);
+  --background: oklch(0.982 0.004 230);
+  --foreground: oklch(0.27 0.05 235);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.46 0.105 163);
+  --primary: oklch(0.38 0.085 235);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.968 0.007 247.896);
   --secondary-foreground: oklch(0.208 0.042 265.755);
   --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.55 0.009 160);
-  --accent: oklch(0.95 0.025 160);
+  --muted-foreground: oklch(0.52 0.025 235);
+  --accent: oklch(0.95 0.03 45);
   --accent-foreground: oklch(0.208 0.042 265.755);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.919 0.004 160);
-  --input: oklch(0.919 0.004 160);
-  --ring: oklch(0.46 0.105 163);
+  --border: oklch(0.915 0.01 230);
+  --input: oklch(0.915 0.01 230);
+  --ring: oklch(0.68 0.15 42);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -149,10 +149,12 @@
   --font-sans: 'Manrope', sans-serif;
   --color-metric: var(--metric);
   --color-success: var(--success);
+  --color-accent-brand: var(--accent-brand);
 }
 
 :root {
-  --metric: oklch(0.989 0.001 160);
+  --metric: oklch(0.985 0.004 230);
+  --accent-brand: oklch(0.68 0.15 42);
   --success: oklch(0.49 0.11 157);
   --status-background: oklch(0.965 0.037 157);
   --paused-background: oklch(0.965 0.002 160);
