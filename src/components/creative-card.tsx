@@ -1,17 +1,23 @@
-import { Instagram, Facebook, MousePointer2, Wallet, MessageCircle, Megaphone, ImageOff } from 'lucide-react';
+import { Instagram, Facebook, MousePointer2, Wallet, MessageCircle, Megaphone, ImageOff, Maximize2 } from 'lucide-react';
 import { useState } from 'react';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { currency, number, type Ad } from '@/lib/ads';
 
 export function CreativeCard({ ad, showClicks = true, showSpent = true, showConversations = true }: { ad: Ad; showClicks?: boolean; showSpent?: boolean; showConversations?: boolean }) {
   const [imageFailed, setImageFailed] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
   const Platform = ad.format.includes('Instagram') ? Instagram : Facebook;
+  const hasImage = Boolean(ad.imageUrl) && !imageFailed;
   return (
     <article className="creative-card overflow-hidden rounded-lg border border-border bg-card">
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-        {ad.imageUrl && !imageFailed ? <>
+        {hasImage ? <>
           {!imageLoaded && <div className="absolute inset-0 animate-pulse bg-muted" aria-hidden />}
           <img src={ad.imageUrl} alt={ad.title} width={1024} height={1024} loading="lazy" decoding="async" onLoad={() => setImageLoaded(true)} onError={() => setImageFailed(true)} className={`h-full w-full object-cover transition-opacity duration-500 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`} />
+          <button type="button" onClick={() => setZoomed(true)} aria-label="Ampliar imagem do criativo" title="Ampliar imagem" className="group absolute inset-0 cursor-zoom-in">
+            <span className="absolute right-2 top-2 hidden items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-[11px] font-medium text-foreground backdrop-blur group-hover:flex"><Maximize2 size={12} />Ampliar</span>
+          </button>
         </> : <div className="flex h-full items-center justify-center text-muted-foreground" aria-label="Imagem indisponível"><ImageOff size={32} /></div>}
         <span className={`status-badge ${ad.status === 'Ativo' ? 'status-active' : 'status-paused'}`}><span className="status-dot" />{ad.status}</span>
         <span className="platform-badge"><Platform size={13} />{ad.format}</span>
@@ -32,6 +38,15 @@ export function CreativeCard({ ad, showClicks = true, showSpent = true, showConv
           {metrics.map((metric, index) => <div key={metric.label} className={index ? 'border-l border-border pl-4' : ''}><p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground"><metric.icon size={13} />{metric.label}</p><p className="text-lg font-semibold tabular-nums">{metric.value}</p></div>)}
         </div>;
       })()}
+      <Dialog open={zoomed} onOpenChange={setZoomed}>
+        <DialogContent className="max-w-[960px] gap-0 border-none bg-transparent p-0 sm:max-w-[960px]">
+          <DialogTitle className="sr-only">{ad.title}</DialogTitle>
+          {hasImage
+            ? <img src={ad.imageUrl} alt={ad.title} decoding="async" className="mx-auto max-h-[80vh] w-auto max-w-full rounded-lg object-contain" />
+            : <div className="flex h-64 items-center justify-center text-muted-foreground" aria-label="Imagem indisponível"><ImageOff size={32} /></div>}
+          <p className="mt-3 text-center text-xs text-muted-foreground">{ad.campaign} — {ad.title}</p>
+        </DialogContent>
+      </Dialog>
     </article>
   );
 }
