@@ -5,7 +5,7 @@ const creativePage = z.object({
   data: z.array(z.object({
     id: z.string(), name: z.string().nullish(), status: z.string().nullish(),
     campaign: z.object({ name: z.string().nullish() }).nullish(),
-    creative: z.object({ name: z.string().nullish(), body: z.string().nullish(), image_url: z.string().nullish() }).nullish(),
+    creative: z.object({ name: z.string().nullish(), body: z.string().nullish(), image_url: z.string().nullish(), thumbnail_url: z.string().nullish() }).nullish(),
     insights: z.object({ data: z.array(z.object({ clicks: z.union([z.string(), z.number()]).nullish(), spend: z.union([z.string(), z.number()]).nullish(), actions: z.array(z.object({ action_type: z.string(), value: z.union([z.string(), z.number()]).nullish() })).nullish() })) }).nullish(),
   })),
   paging: z.object({ next: z.string().optional(), cursors: z.object({ after: z.string().optional() }).optional() }).optional(),
@@ -41,7 +41,7 @@ async function fetchMetaCreatives(accountId: string, accessToken: string, period
     const insightsField = period
       ? `insights.time_range(${JSON.stringify(period)}){clicks,spend,actions}`
       : 'insights{clicks,spend,actions}';
-    url.searchParams.set('fields', `id,name,status,campaign{name},creative{name,image_url,body},${insightsField}`);
+    url.searchParams.set('fields', `id,name,status,campaign{name},creative.thumbnail_width(600).thumbnail_height(600){name,image_url,thumbnail_url,body},${insightsField}`);
     url.searchParams.set('access_token', accessToken);
     url.searchParams.set('limit', '100');
     // Ask Meta only for active ads when that is all the panel will show.
@@ -61,7 +61,7 @@ async function fetchMetaCreatives(accountId: string, accessToken: string, period
     const parsed = creativePage.parse(raw);
     rows.push(...parsed.data.map(item => ({
       id: item.id, campaign: item.campaign?.name || 'Sem campanha', title: item.name || item.creative?.name || 'Anúncio sem título',
-      copy: item.creative?.body || 'Sem texto descritivo.', imageUrl: item.creative?.image_url || '',
+      copy: item.creative?.body || 'Sem texto descritivo.', imageUrl: item.creative?.image_url || item.creative?.thumbnail_url || '',
       format: 'Meta Ads',
       clicks: (item.insights?.data ?? []).reduce((total, insight) => total + safeNumber(insight.clicks), 0),
       spent: (item.insights?.data ?? []).reduce((total, insight) => total + safeNumber(insight.spend), 0),
