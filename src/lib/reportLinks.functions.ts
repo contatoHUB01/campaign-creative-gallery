@@ -14,6 +14,7 @@ export type CampaignReportLink = {
   campaigns: string[];
   configuration: ReportConfiguration;
   revokedAt: string | null;
+  token: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -41,13 +42,13 @@ export const listCampaignReportLinks = createServerFn({ method: 'GET' })
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     const { data, error } = await supabaseAdmin
       .from('campaign_report_links')
-      .select('id,title,campaign_name,configuration,revoked_at,created_at,updated_at')
+      .select('id,title,campaign_name,configuration,revoked_at,share_token,created_at,updated_at')
       .eq('created_by', context.userId)
       .order('updated_at', { ascending: false });
     if (error) throw new Error('Não foi possível carregar os relatórios.');
     return data.map(link => {
       const configuration = parseSavedConfiguration(link.configuration, link.campaign_name);
-      return { id: link.id, title: link.title, campaigns: configuration.campaigns, configuration, revokedAt: link.revoked_at, createdAt: link.created_at, updatedAt: link.updated_at };
+      return { id: link.id, title: link.title, campaigns: configuration.campaigns, configuration, revokedAt: link.revoked_at, token: link.revoked_at ? null : link.share_token, createdAt: link.created_at, updatedAt: link.updated_at };
     });
   });
 
@@ -68,6 +69,7 @@ export const createCampaignReportLink = createServerFn({ method: 'POST' })
       campaign_name: data.configuration.campaigns[0] ?? 'Relatório',
       configuration: data.configuration,
       token_hash: tokenHash,
+      share_token: token,
       expires_at: null,
       created_by: context.userId,
     }).select('id').single();
@@ -90,13 +92,26 @@ export const updateCampaignReportLink = createServerFn({ method: 'POST' })
     return { ok: true };
   });
 
+/** Issues a link for versions saved before links were kept (their old address cannot be recovered). */
+export const issueCampaignReportLink = createServerFn({ method: 'POST' })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    setResponseHeader('Cache-Control', 'private, no-store');
+    const token = makeToken();
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    const { data: updated, error } = await supabaseAdmin.from('campaign_report_links').update({ token_hash: await hashToken(token), share_token: token }).eq('id', data.id).eq('created_by', context.userId).is('revoked_at', null).is('share_token', null).select('id').maybeSingle();
+    if (error || !updated) throw new Error('Não foi possível gerar o link.');
+    return { token };
+  });
+
 export const revokeCampaignReportLink = createServerFn({ method: 'POST' })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     setResponseHeader('Cache-Control', 'private, no-store');
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-    const { data: revoked, error } = await supabaseAdmin.from('campaign_report_links').update({ revoked_at: new Date().toISOString() }).eq('id', data.id).eq('created_by', context.userId).select('id').maybeSingle();
+    const { data: revoked, error } = await supabaseAdmin.from('campaign_report_links').update({ revoked_at: new Date().toISOString(), share_token: null }).eq('id', data.id).eq('created_by', context.userId).select('id').maybeSingle();
     if (error || !revoked) throw new Error('Não foi possível revogar o link.');
     return { ok: true };
   });

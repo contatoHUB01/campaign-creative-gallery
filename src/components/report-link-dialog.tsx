@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Copy, Eye, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Copy, Eye, Link2, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useServerFn } from '@tanstack/react-start';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ACCOUNT_ID } from '@/lib/metaApi';
-import { createCampaignReportLink, listCampaignReportLinks, revokeCampaignReportLink, updateCampaignReportLink, type CampaignReportLink, type ReportConfiguration } from '@/lib/reportLinks.functions';
+import { createCampaignReportLink, issueCampaignReportLink, listCampaignReportLinks, revokeCampaignReportLink, updateCampaignReportLink, type CampaignReportLink, type ReportConfiguration } from '@/lib/reportLinks.functions';
 
 type Props = {
   configuration: ReportConfiguration | null;
@@ -20,6 +20,10 @@ export function ReportLinkDialog({ configuration, editing, onEdit, onSaved }: Pr
   const createLink = useServerFn(createCampaignReportLink);
   const updateLink = useServerFn(updateCampaignReportLink);
   const revokeLink = useServerFn(revokeCampaignReportLink);
+  const issueLink = useServerFn(issueCampaignReportLink);
+  const [copied, setCopied] = useState('');
+  const linkFor = (token: string) => `${window.location.origin}/report/${token}`;
+  const copy = (value: string) => { void navigator.clipboard.writeText(value); setCopied(value); };
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [links, setLinks] = useState<CampaignReportLink[]>([]);
@@ -42,15 +46,22 @@ export function ReportLinkDialog({ configuration, editing, onEdit, onSaved }: Pr
         await updateLink({ data: { id: editing.id, title, configuration } });
         onSaved({ id: editing.id, title });
         setMessage('Versão atualizada. O mesmo link já mostra as alterações.');
+        const current = (await listLinks()).find(l => l.id === editing.id);
+        if (current?.token) setUrl(linkFor(current.token));
       } else {
         const result = await createLink({ data: { accountId: ACCOUNT_ID, title, configuration } });
         onSaved({ id: result.id, title });
-        setUrl(`${window.location.origin}/report/${result.token}`);
+        setUrl(linkFor(result.token));
       }
       setLinks(await listLinks());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível salvar a versão.');
     } finally { setPending(false); }
+  }
+
+  async function issue(id: string) {
+    try { const { token } = await issueLink({ data: { id } }); setLinks(list => list.map(l => l.id === id ? { ...l, token } : l)); copy(linkFor(token)); }
+    catch { setError('Não foi possível gerar o link.'); }
   }
 
   async function revoke(id: string) {
@@ -68,11 +79,11 @@ export function ReportLinkDialog({ configuration, editing, onEdit, onSaved }: Pr
           {editing && <Button variant="outline" onClick={() => { void save(false); }} disabled={pending || !title.trim()}>Atualizar “{editing.title}”</Button>}
           <Button onClick={() => { void save(true); }} disabled={pending || !title.trim()}>{pending && <Loader2 className="animate-spin" />}{editing ? 'Salvar como nova versão' : 'Salvar e gerar link'}</Button>
         </div>
-        {url && <div className="rounded-md border border-border bg-muted p-3"><p className="mb-2 text-xs font-medium">Link pronto (não expira):</p><div className="flex gap-2 rounded-md border border-border bg-card p-2"><input readOnly aria-label="Link criado" value={url} className="min-w-0 flex-1 bg-transparent px-2 text-xs outline-none" /><Button size="icon" variant="ghost" aria-label="Copiar link" onClick={() => { void navigator.clipboard.writeText(url); }}><Copy /></Button></div></div>}
+        {url && <div className="rounded-md border border-border bg-muted p-3"><p className="mb-2 text-xs font-medium">Link pronto (não expira):</p><div className="flex gap-2 rounded-md border border-border bg-card p-2"><input readOnly aria-label="Link criado" value={url} className="min-w-0 flex-1 bg-transparent px-2 text-xs outline-none" /><Button size="icon" variant="ghost" aria-label="Copiar link" onClick={() => copy(url)}><Copy /></Button></div>{copied === url && <p className="mt-2 text-xs text-primary">Link copiado.</p>}</div>}
         {message && <p className="text-sm text-primary">{message}</p>}
       </div>}
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
-      <div className="border-t border-border pt-4"><h3 className="mb-3 text-sm font-semibold">Versões salvas</h3><div className="space-y-2">{links.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma versão salva.</p>}{links.map(link => <div key={link.id} className="flex items-center justify-between gap-3 rounded-md border border-border p-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{link.title}</p><p className="truncate text-xs text-muted-foreground">{link.revokedAt ? 'Revogado' : `${link.campaigns.length} campanha(s) · atualizado ${new Intl.DateTimeFormat('pt-BR').format(new Date(link.updatedAt))}`}</p></div>{!link.revokedAt && <div className="flex"><Button size="icon" variant="ghost" aria-label="Abrir no painel para editar" title="Abrir no painel para editar" onClick={() => { onEdit(link); setOpen(false); }}><Pencil /></Button><Button size="icon" variant="ghost" aria-label="Revogar link" title="Revogar link" onClick={() => { void revoke(link.id); }}><Trash2 /></Button></div>}</div>)}</div></div>
+      <div className="border-t border-border pt-4"><h3 className="mb-3 text-sm font-semibold">Versões salvas</h3><div className="space-y-2">{links.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma versão salva.</p>}{links.map(link => <div key={link.id} className="flex items-center justify-between gap-3 rounded-md border border-border p-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{link.title}</p><p className="truncate text-xs text-muted-foreground">{link.revokedAt ? 'Revogado' : `${link.campaigns.length} campanha(s) · atualizado ${new Intl.DateTimeFormat('pt-BR').format(new Date(link.updatedAt))}`}</p>{link.token && <a href={linkFor(link.token)} target="_blank" rel="noreferrer" className="block truncate text-xs text-primary underline">{linkFor(link.token)}</a>}{copied && link.token && copied === linkFor(link.token) && <p className="text-xs text-primary">Link copiado.</p>}</div>{!link.revokedAt && <div className="flex">{link.token ? <Button size="icon" variant="ghost" aria-label="Copiar link" title="Copiar link" onClick={() => copy(linkFor(link.token!))}><Copy /></Button> : <Button size="sm" variant="outline" className="gap-1" title="Versão salva antes de os links ficarem guardados" onClick={() => { void issue(link.id); }}><Link2 />Gerar link</Button>}<Button size="icon" variant="ghost" aria-label="Abrir no painel para editar" title="Abrir no painel para editar" onClick={() => { onEdit(link); setOpen(false); }}><Pencil /></Button><Button size="icon" variant="ghost" aria-label="Revogar link" title="Revogar link" onClick={() => { void revoke(link.id); }}><Trash2 /></Button></div>}</div>)}</div></div>
     </DialogContent>
   </Dialog>;
 }
