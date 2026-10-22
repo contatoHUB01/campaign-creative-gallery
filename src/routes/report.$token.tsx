@@ -9,12 +9,11 @@ import { getSharedCampaignReport } from '@/lib/reportLinks.functions';
 const sharedReportQuery = (token: string) => queryOptions({
   queryKey: ['shared-campaign-report', token],
   queryFn: () => getSharedCampaignReport({ data: { token } }),
-  staleTime: 1000 * 60 * 15,       // Mantém os dados válidos por 15 minutos sem refetch
-  gcTime: 1000 * 60 * 30,          // Mantém em cache por 30 minutos
-  refetchOnMount: false,           // Não refaz o fetch se o relatório já estiver na memória
-  refetchOnWindowFocus: false,     // Não trava ao alternar entre abas do navegador
-  refetchInterval: false,          // DESLIGA o refetch automático a cada 30 segundos
-  retry: 1,
+  staleTime: 1000 * 60 * 15,       // Não refaz fetch por 15 minutos
+  refetchOnMount: false,           // Usa os dados já carregados
+  refetchOnWindowFocus: false,     // Não refaz a busca ao trocar de aba
+  refetchInterval: false,          // DESLIGADO: elimina o refetch a cada 30 segundos
+  retry: false,
 });
 
 export const Route = createFileRoute('/report/$token')({
