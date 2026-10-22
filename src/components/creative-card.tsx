@@ -5,7 +5,6 @@ import { currency, number, type Ad } from '@/lib/ads';
 
 export function CreativeCard({ ad, showClicks = true, showSpent = true, showConversations = true }: { ad: Ad; showClicks?: boolean; showSpent?: boolean; showConversations?: boolean }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const Platform = ad.format.includes('Instagram') ? Instagram : Facebook;
   const hasImage = Boolean(ad.imageUrl) && !imageFailed;
@@ -15,20 +14,15 @@ export function CreativeCard({ ad, showClicks = true, showSpent = true, showConv
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         {hasImage ? (
           <>
-            {!imageLoaded && (
-              <div className="absolute inset-0 animate-pulse bg-muted" aria-hidden />
-            )}
             <img
               src={ad.imageUrl}
               alt={ad.title}
               width={1024}
               height={1024}
-              loading="lazy"
               decoding="async"
               referrerPolicy="no-referrer"
-              onLoad={() => setImageLoaded(true)}
               onError={() => setImageFailed(true)}
-              className={`h-full w-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className="h-full w-full object-cover"
             />
             <button
               type="button"
