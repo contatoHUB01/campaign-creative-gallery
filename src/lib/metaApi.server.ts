@@ -66,7 +66,7 @@ function sumMetrics(list: Array<{ clicks?: string | number | null; spend?: strin
 }
 
 /** Reads all ad metrics in one account-level report (much faster than per-ad insights). */
-async function fetchAdMetrics(accountId: string, accessToken: string, period: { since: string; until: string } | undefined, activeOnly: boolean): Promise<Map<string, Metrics> | null> {
+async function fetchAdMetrics(accountId: string, accessToken: string, period: { since: string; until: string } | undefined, activeOnly: boolean): Promise<Map<string, Metrics>> {
   const metrics = new Map<string, Metrics>();
   let after: string | undefined;
   for (let page = 0; page < 20; page += 1) {
@@ -79,7 +79,7 @@ async function fetchAdMetrics(accountId: string, accessToken: string, period: { 
     if (activeOnly) url.searchParams.set('filtering', JSON.stringify([{ field: 'ad.effective_status', operator: 'IN', value: ['ACTIVE'] }]));
     if (after) url.searchParams.set('after', after);
     const parsed = insightsPage.safeParse(await getJson(url, accessToken));
-    if (!parsed.success) return null;
+    if (!parsed.success) throw new Error('A Meta retornou números em formato inesperado.');
     for (const row of parsed.data.data) {
       const prev = metrics.get(row.ad_id) ?? { clicks: 0, spent: 0, conversations: 0 };
       const next = sumMetrics([row]);
@@ -92,15 +92,15 @@ async function fetchAdMetrics(accountId: string, accessToken: string, period: { 
 }
 
 async function fetchMetaCreatives(accountId: string, accessToken: string, period: { since: string; until: string } | undefined, activeOnly: boolean): Promise<Ad[]> {
-  // Metrics and creatives are requested at the same time; if the metrics report fails, per-ad insights are used.
-  const metricsPromise = fetchAdMetrics(accountId, accessToken, period, activeOnly).catch(() => null);
+  // Metrics and creatives are requested at the same time, then merged by ad id.
+  const metricsPromise = fetchAdMetrics(accountId, accessToken, period, activeOnly);
+  metricsPromise.catch(() => undefined);
   const rows: Array<Ad & { nested: Metrics }> = [];
   let after: string | undefined;
   let done = false;
   for (let page = 0; page < 10 && !done; page += 1) {
     const url = new URL(`https://graph.facebook.com/v19.0/act_${accountId}/ads`);
-    const insightsField = period ? `insights.time_range(${JSON.stringify(period)}){clicks,spend,actions}` : 'insights{clicks,spend,actions}';
-    url.searchParams.set('fields', `id,name,status,campaign{name},creative.thumbnail_width(600).thumbnail_height(600){name,image_url,thumbnail_url,body},${insightsField}`);
+    url.searchParams.set('fields', 'id,name,status,campaign{name},creative.thumbnail_width(600).thumbnail_height(600){name,image_url,thumbnail_url,body}');
     url.searchParams.set('access_token', accessToken);
     url.searchParams.set('limit', '100');
     if (activeOnly) url.searchParams.set('effective_status', JSON.stringify(['ACTIVE']));
@@ -122,7 +122,8 @@ async function fetchMetaCreatives(accountId: string, accessToken: string, period
   if (!done) throw new Error('A conta possui mais de 1.000 criativos. A consulta precisa ser dividida antes de exibir o relatório completo.');
   const metrics = await metricsPromise;
   return rows.map(({ nested, ...ad }) => {
-    const m = metrics?.size ? metrics.get(String(ad.id)) ?? { clicks: 0, spent: 0, conversations: 0 } : nested;
+    void nested;
+    const m = metrics.get(String(ad.id)) ?? { clicks: 0, spent: 0, conversations: 0 };
     return { ...ad, ...m };
   });
 }
