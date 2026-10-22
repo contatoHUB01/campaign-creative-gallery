@@ -119,19 +119,68 @@ export const revokeCampaignReportLink = createServerFn({ method: 'POST' })
 export const getSharedCampaignReport = createServerFn({ method: 'POST' })
   .inputValidator((input: { token: string }) => z.object({ token: z.string().regex(/^[a-f0-9]{64}$/) }).parse(input))
   .handler(async ({ data }): Promise<SharedMetaReport> => {
-    setResponseHeader('Cache-Control', 'private, no-store');
+    setResponseHeader('Cache-Control', 'public, max-age=300'); // Permite cache de 5min no navegador
     const tokenHash = await hashToken(data.token);
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-    const { data: link, error } = await supabaseAdmin.from('campaign_report_links').select('title,campaign_name,configuration,expires_at,revoked_at').eq('token_hash', tokenHash).maybeSingle();
-    if (error || !link || link.revoked_at || (link.expires_at && new Date(link.expires_at).getTime() <= Date.now())) return { ads: [], connected: false, error: 'Este link não existe, expirou ou foi revogado.' };
+    
+    // 1. Busca as configurações E o cache salvo
+    const { data: link, error } = await supabaseAdmin
+      .from('campaign_report_links')
+      .select('id,title,campaign_name,configuration,expires_at,revoked_at,cached_report,cached_at')
+      .eq('token_hash', tokenHash)
+      .maybeSingle();
+
+    if (error || !link || link.revoked_at || (link.expires_at && new Date(link.expires_at).getTime() <= Date.now())) {
+      return { ads: [], connected: false, error: 'Este link não existe, expirou ou foi revogado.' };
+    }
+
+    // 2. Se houver cache gerado há menos de 1 hora, retorna IMEDIATAMENTE (super rápido)
+    const CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 hora
+    const isCacheFresh = link.cached_report && link.cached_at && (Date.now() - new Date(link.cached_at).getTime() < CACHE_MAX_AGE_MS);
+
+    if (isCacheFresh) {
+      return link.cached_report as SharedMetaReport;
+    }
+
+    // 3. Se não houver cache válido, busca na Meta
     const accessToken = process.env['META_ACCESS_TOKEN'];
-    if (!accessToken) return { ads: [], connected: false, error: 'O relatório está temporariamente indisponível.' };
+    if (!accessToken) {
+      // Se não tiver token mas tiver cache antigo, ainda serve o cache em vez de quebrar
+      if (link.cached_report) return link.cached_report as SharedMetaReport;
+      return { ads: [], connected: false, error: 'O relatório está temporariamente indisponível.' };
+    }
+
     try {
       const configuration = parseSavedConfiguration(link.configuration, link.campaign_name);
-      const projection = projectSharedReport(await readMetaCreatives('815749902379278', accessToken, configuration.period), configuration);
-      return { ...projection, connected: true, error: null, title: link.title, campaignName: configuration.campaigns.join(', ') };
+      const projection = projectSharedReport(
+        await readMetaCreatives('815749902379278', accessToken, configuration.period),
+        configuration
+      );
+
+      const finalReport: SharedMetaReport = {
+        ...projection,
+        connected: true,
+        error: null,
+        title: link.title,
+        campaignName: configuration.campaigns.join(', ')
+      };
+
+      // 4. Salva o resultado no Supabase em segundo plano para as próximas aberturas serem instantâneas
+      await supabaseAdmin
+        .from('campaign_report_links')
+        .update({
+          cached_report: finalReport,
+          cached_at: new Date().toISOString()
+        })
+        .eq('id', link.id);
+
+      return finalReport;
     } catch (cause) {
       console.error('Erro ao carregar relatório compartilhado:', cause);
+      // Se a Meta falhar por rate limit, usa o último cache salvo se existir
+      if (link.cached_report) {
+        return link.cached_report as SharedMetaReport;
+      }
       return { ads: [], connected: false, error: 'Não foi possível carregar este relatório agora.' };
     }
   });
