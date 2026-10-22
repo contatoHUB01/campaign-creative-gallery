@@ -57,7 +57,8 @@ async function getJson(url: URL, accessToken: string): Promise<unknown> {
   return raw;
 }
 
-function sumMetrics(list: Array<{ clicks?: string | number | null; spend?: string | number | null; actions?: Array<{ action_type: string; value?: string | number | null }> | null }>): Metrics {
+type Num = string | number | null | undefined;
+function sumMetrics(list: Array<{ clicks?: Num; spend?: Num; actions?: Array<{ action_type: string; value?: Num }> | null | undefined }>): Metrics {
   return {
     clicks: list.reduce((t, i) => t + safeNumber(i.clicks), 0),
     spent: list.reduce((t, i) => t + safeNumber(i.spend), 0),
