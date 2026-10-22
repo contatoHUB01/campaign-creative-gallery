@@ -23,6 +23,7 @@ export type Database = {
           expires_at: string | null
           id: string
           revoked_at: string | null
+          share_token: string | null
           title: string
           token_hash: string
           updated_at: string
@@ -35,6 +36,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           revoked_at?: string | null
+          share_token?: string | null
           title: string
           token_hash: string
           updated_at?: string
@@ -47,6 +49,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           revoked_at?: string | null
+          share_token?: string | null
           title?: string
           token_hash?: string
           updated_at?: string

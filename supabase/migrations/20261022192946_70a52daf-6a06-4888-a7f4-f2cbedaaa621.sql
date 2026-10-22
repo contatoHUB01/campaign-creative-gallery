@@ -1,0 +1,1 @@
+ALTER TABLE public.campaign_report_links ADD COLUMN IF NOT EXISTS share_token text;
