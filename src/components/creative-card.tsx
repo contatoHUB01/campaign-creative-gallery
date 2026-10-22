@@ -1,5 +1,5 @@
 import { Instagram, Facebook, MousePointer2, Wallet, MessageCircle, Megaphone, ImageOff, Maximize2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { currency, number, type Ad } from '@/lib/ads';
 
@@ -9,17 +9,6 @@ export function CreativeCard({ ad, showClicks = true, showSpent = true, showConv
   const [zoomed, setZoomed] = useState(false);
   const Platform = ad.format.includes('Instagram') ? Instagram : Facebook;
   const hasImage = Boolean(ad.imageUrl) && !imageFailed;
-
-  // Timeout de segurança: se a imagem da Meta travar por mais de 5s, exibe fallback e encerra o "loading"
-  useEffect(() => {
-    if (!hasImage || imageLoaded) return;
-    const timer = setTimeout(() => {
-      if (!imageLoaded) {
-        setImageFailed(true);
-      }
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [hasImage, imageLoaded]);
 
   return (
     <article className="creative-card overflow-hidden rounded-lg border border-border bg-card">
@@ -34,9 +23,9 @@ export function CreativeCard({ ad, showClicks = true, showSpent = true, showConv
               alt={ad.title}
               width={1024}
               height={1024}
+              loading="lazy"
               decoding="async"
               referrerPolicy="no-referrer"
-              crossOrigin="anonymous"
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageFailed(true)}
               className={`h-full w-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
@@ -102,7 +91,6 @@ export function CreativeCard({ ad, showClicks = true, showSpent = true, showConv
               alt={ad.title}
               decoding="async"
               referrerPolicy="no-referrer"
-              crossOrigin="anonymous"
               className="mx-auto max-h-[80vh] w-auto max-w-full rounded-lg object-contain"
             />
           ) : (
