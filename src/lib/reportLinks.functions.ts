@@ -86,7 +86,11 @@ export const updateCampaignReportLink = createServerFn({ method: 'POST' })
     setResponseHeader('Cache-Control', 'private, no-store');
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     const { data: updated, error } = await supabaseAdmin.from('campaign_report_links').update({
-      title: data.title, campaign_name: data.configuration.campaigns[0] ?? 'Relatório', configuration: data.configuration,
+  title: data.title, 
+  campaign_name: data.configuration.campaigns[0] ?? 'Relatório', 
+  configuration: data.configuration,
+  cached_report: null, // 👈 Zera o cache antigo
+  cached_at: null,     // 👈 Força recálculo imediato na próxima abertura
     }).eq('id', data.id).eq('created_by', context.userId).is('revoked_at', null).select('id').maybeSingle();
     if (error || !updated) throw new Error('Não foi possível atualizar este relatório.');
     return { ok: true };
