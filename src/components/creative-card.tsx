@@ -3,7 +3,19 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { currency, number, type Ad } from '@/lib/ads';
 
-export function CreativeCard({ ad, showClicks = true, showSpent = true, showConversations = true }: { ad: Ad; showClicks?: boolean; showSpent?: boolean; showConversations?: boolean }) {
+export function CreativeCard({
+  ad,
+  showClicks = true,
+  showSpent = true,
+  showConversations = true,
+  showCardMetrics = true, // 👈 Nova prop que controla a área inteira de métricas do cartão
+}: {
+  ad: Ad;
+  showClicks?: boolean;
+  showSpent?: boolean;
+  showConversations?: boolean;
+  showCardMetrics?: boolean;
+}) {
   const [imageFailed, setImageFailed] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const Platform = ad.format.includes('Instagram') ? Instagram : Facebook;
@@ -56,7 +68,9 @@ export function CreativeCard({ ad, showClicks = true, showSpent = true, showConv
         <h3 className="text-[17px] font-semibold leading-6">{ad.title}</h3>
         <p className="mt-2 min-h-[66px] text-[13px] leading-[22px] text-muted-foreground">{ad.copy}</p>
       </div>
-      {(() => {
+      
+      {/* Exibe o rodapé de métricas apenas se showCardMetrics for true */}
+      {showCardMetrics && (() => {
         const metrics = [
           ...(showClicks ? [{ label: 'Cliques', value: number(ad.clicks), icon: MousePointer2 }] : []),
           ...(showSpent ? [{ label: 'Valor gasto', value: currency(ad.spent), icon: Wallet }] : []),
@@ -76,6 +90,7 @@ export function CreativeCard({ ad, showClicks = true, showSpent = true, showConv
           </div>
         );
       })()}
+
       <Dialog open={zoomed} onOpenChange={setZoomed}>
         <DialogContent className="max-w-[960px] gap-0 border-none bg-transparent p-0 sm:max-w-[960px]">
           <DialogTitle className="sr-only">{ad.title}</DialogTitle>
