@@ -19,7 +19,7 @@ export type CustomIndicator = z.infer<typeof customIndicatorSchema>;
 export const campaignOverrideSchema = z.object({
   clicks: z.number().finite().int().nonnegative().optional(),
   spend: z.number().finite().nonnegative().optional(),
-  spent: z.number().finite().nonnegative().optional(), // Aceita spend ou spent
+  spent: z.number().finite().nonnegative().optional(),
   conversations: z.number().finite().int().nonnegative().optional(),
 });
 export type CampaignOverride = z.infer<typeof campaignOverrideSchema>;
@@ -43,6 +43,9 @@ export const reportConfigurationSchema = z.object({
   showCardMetrics: z.boolean().default(true),
   overrides: z.object({ clicks: z.number().finite().int().nonnegative().optional(), spent: z.number().finite().nonnegative().optional() }).default({}),
   campaignOverrides: z.record(z.string(), campaignOverrideSchema).default({}),
+  // 👈 Novos campos de renomeação amigável para o cliente:
+  campaignRenames: z.record(z.string(), z.string()).default({}),
+  adRenames: z.record(z.string(), z.string()).default({}),
   customIndicators: z.array(customIndicatorSchema).max(20).default([]),
 });
 
@@ -68,15 +71,22 @@ export function selectReportAds(ads: Ad[], configuration: ReportConfiguration): 
 
 export type CampaignGroup = {
   name: string;
+  originalName: string;
   totals: { clicks: number; spent: number; conversations: number };
   ads: Ad[];
 };
 
 export function projectSharedReport(ads: Ad[], configuration: ReportConfiguration) {
   const campaignAds = ads.filter(ad => configuration.campaigns.includes(ad.campaign));
-  const selectedAds = selectReportAds(ads, configuration);
+  
+  // Aplica renomeação nos anúncios se houver nome personalizado definido
+  const selectedAds = selectReportAds(ads, configuration).map(ad => ({
+    ...ad,
+    title: configuration.adRenames?.[String(ad.id)]?.trim() || ad.title,
+    campaign: configuration.campaignRenames?.[ad.campaign]?.trim() || ad.campaign,
+  }));
 
-  // Totais Globais no TOPO: estritamente os dados brutos ou o override global geral
+  // Totais Globais no TOPO
   const realGlobal = {
     clicks: configuration.overrides.clicks ?? campaignAds.reduce((sum, ad) => sum + ad.clicks, 0),
     spent: configuration.overrides.spent ?? campaignAds.reduce((sum, ad) => sum + ad.spent, 0),
@@ -97,9 +107,11 @@ export function projectSharedReport(ads: Ad[], configuration: ReportConfiguratio
     conversations: realGlobal.conversations,
   };
 
-  // Agrupamento por campanha com subtotais individuais e aplicação de overrides por campanha
+  // Agrupamento por campanha com nomes amigáveis aplicados
   const campaignGroups: CampaignGroup[] = configuration.campaigns.map(campName => {
-    const adsInCamp = selectedAds.filter(ad => ad.campaign === campName);
+    // Busca os anúncios associados a essa campanha (pelo nome original ou renomeado)
+    const displayName = configuration.campaignRenames?.[campName]?.trim() || campName;
+    const adsInCamp = selectedAds.filter(ad => ad.campaign === displayName || ad.campaign === campName);
     const override = configuration.campaignOverrides[campName];
 
     const rawClicks = adsInCamp.reduce((sum, ad) => sum + ad.clicks, 0);
@@ -107,7 +119,8 @@ export function projectSharedReport(ads: Ad[], configuration: ReportConfiguratio
     const rawConversations = adsInCamp.reduce((sum, ad) => sum + (ad.conversations ?? 0), 0);
 
     return {
-      name: campName,
+      name: displayName,
+      originalName: campName,
       totals: {
         clicks: override?.clicks ?? rawClicks,
         spent: override?.spend ?? override?.spent ?? rawSpent,
