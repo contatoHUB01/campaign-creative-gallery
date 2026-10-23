@@ -2,7 +2,7 @@ import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
 import logo from '@/assets/logo-criativa.png.asset.json';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { ArrowDownToLine, ArrowUpRight, SlidersHorizontal, LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, MessageCircle, ChevronDown, X, Loader2, Layers, Sliders } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpRight, SlidersHorizontal, LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity as MetaIcon, MessageCircle, ChevronDown, X, Loader2, Layers, Sliders, Type } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -91,6 +91,8 @@ function Index() {
   const [metrics, setMetrics] = useState<MetricsState>(defaultMetrics);
   const [showCardMetrics, setShowCardMetrics] = useState<boolean>(true);
   const [campaignOverrides, setCampaignOverrides] = useState<Record<string, CampaignOverride>>({});
+  const [campaignRenames, setCampaignRenames] = useState<Record<string, string>>({});
+  const [adRenames, setAdRenames] = useState<Record<string, string>>({});
   const [selectedAds, setSelectedAds] = useState<string[]>([]);
   const [editing, setEditing] = useState<{ id: string; title: string } | null>(null);
 
@@ -112,7 +114,6 @@ function Index() {
   const reset = () => { void navigate({ search: previous => ({ ...previous, status: 'Todos', campaign: [], since: '', until: '' }), replace: true }); };
   const reportCampaigns = campaign.length ? campaign : campaigns;
 
-  // Montagem da configuração oficial para geração do link
   const reportConfiguration: ReportConfiguration | null = report.connected && reportCampaigns.length ? {
     campaigns: reportCampaigns,
     adIds: selectedAds.filter(id => visible.some(ad => String(ad.id) === id)),
@@ -126,12 +127,13 @@ function Index() {
       ...(metrics.spentOverride === '' ? {} : { spent: Number(metrics.spentOverride) })
     },
     campaignOverrides,
+    campaignRenames,
+    adRenames,
     customIndicators: metrics.indicators.filter(item => item.name.trim()),
   } : null;
 
   const reportAds = selectedAds.length ? visible.filter(ad => selectedAds.includes(String(ad.id))) : visible;
 
-  // Totais do Topo (Consolidados Globais Independentes)
   const shownClicks = metrics.clicksOverride === '' ? reportAds.reduce((s, ad) => s + ad.clicks, 0) : Number(metrics.clicksOverride);
   const shownSpent = metrics.spentOverride === '' ? reportAds.reduce((s, ad) => s + ad.spent, 0) : Number(metrics.spentOverride);
   const shownConversations = reportAds.reduce((s, ad) => s + (ad.conversations ?? 0), 0);
@@ -144,6 +146,8 @@ function Index() {
     setSelectedAds(c.adIds);
     setShowCardMetrics(c.showCardMetrics ?? true);
     setCampaignOverrides(c.campaignOverrides ?? {});
+    setCampaignRenames(c.campaignRenames ?? {});
+    setAdRenames(c.adRenames ?? {});
     setMetrics({
       showClicks: c.visibility.clicks,
       showSpent: c.visibility.spent,
@@ -179,7 +183,20 @@ function Index() {
     });
   }
 
-  // Agrupamento por Campanha no Dashboard
+  function handleCampaignRename(campName: string, newName: string) {
+    setCampaignRenames(prev => ({
+      ...prev,
+      [campName]: newName
+    }));
+  }
+
+  function handleAdRename(adId: string, newTitle: string) {
+    setAdRenames(prev => ({
+      ...prev,
+      [adId]: newTitle
+    }));
+  }
+
   const activeCampaigns = reportCampaigns.filter(name => visible.some(ad => ad.campaign === name));
 
   if (sessionState === 'checking') {
@@ -260,7 +277,6 @@ function Index() {
           </div>
         )}
 
-        {/* TOTAIS GLOBAIS INDEPENDENTES */}
         {hasFilters && (
           <section aria-label="Resumo dos resultados" className="report-summary my-8 border-y border-border py-7">
             {[
@@ -284,12 +300,10 @@ function Index() {
           </section>
         )}
 
-        {/* CONTROLES E CONFIGURAÇÕES */}
         {hasFilters && report.connected && (
           <div className="print:hidden space-y-4 mb-6">
             <ReportMetricsPanel value={metrics} onChange={setMetrics} />
             
-            {/* SWITCH: EXIBIR MÉTRICAS INDIVIDUAIS NOS CRIATIVOS */}
             <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
               <div className="space-y-0.5">
                 <label htmlFor="card-metrics-toggle" className="text-sm font-semibold text-foreground cursor-pointer">
@@ -308,7 +322,7 @@ function Index() {
           </div>
         )}
 
-        {/* BARRA DE FILTROS LIMPA (SEM CAMPO DE BUSCA TEXTUAL) */}
+        {/* BARRA DE FILTROS LIMPA */}
         <div className="mb-8 flex flex-wrap items-center gap-3 print:hidden">
           <Popover>
             <PopoverTrigger asChild>
@@ -373,7 +387,7 @@ function Index() {
           {hasFilters && <Button variant="ghost" size="icon" aria-label="Limpar filtros" title="Limpar filtros" onClick={reset}><X /></Button>}
         </div>
 
-        {/* CONTEÚDO PRINCIPAL: AGRUPAMENTO POR CAMPANHA */}
+        {/* LISTA DE CAMPANHAS E CRIATIVOS COM NOMES PERSONALIZÁVEIS */}
         {hasFilters ? (
           <>
             {isFetching && <div className="flex items-center justify-center gap-3 py-12 text-muted-foreground" role="status"><Loader2 className="animate-spin" />Carregando criativos...</div>}
@@ -404,20 +418,25 @@ function Index() {
                   const displayClicks = override.clicks !== undefined ? override.clicks : rawClicks;
                   const displayConversations = override.conversations !== undefined ? override.conversations : rawConversations;
 
+                  const customCampName = campaignRenames[campName] ?? '';
+
                   return (
                     <section key={campName} className="rounded-xl border border-border/70 bg-card/40 p-6 sm:p-8">
-                      {/* Cabeçalho do Bloco de Campanha */}
                       <div className="mb-6 space-y-4 border-b border-border/60 pb-6">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
+                          <div className="space-y-1.5 flex-1 max-w-xl">
                             <div className="flex items-center gap-2 text-xs font-semibold text-primary">
                               <Layers size={15} />Campanha
                             </div>
-                            <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-2xl">{campName}</h2>
+                            <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                              {customCampName || campName}
+                            </h2>
+                            {customCampName && (
+                              <p className="text-[11px] text-muted-foreground">Original: {campName}</p>
+                            )}
                             <span className="text-xs text-muted-foreground">{campAds.length} criativos</span>
                           </div>
 
-                          {/* Subtotais da Campanha */}
                           <div className="flex flex-wrap items-center gap-3">
                             {metrics.showSpent && (
                               <div className="rounded-lg border border-border bg-background px-3.5 py-2 text-left">
@@ -440,13 +459,22 @@ function Index() {
                           </div>
                         </div>
 
-                        {/* INPUTS DE AJUSTE MANUAL POR CAMPANHA (OVERRIDES) */}
+                        {/* CAMPO DE RENOMEAÇÃO E AJUSTES MANUAIS */}
                         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/80 bg-background/50 p-3 print:hidden">
-                          <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                            <Sliders size={13} />Ajustes Manuais da Campanha:
-                          </span>
+                          <div className="flex items-center gap-1.5 text-xs flex-1 min-w-[220px]">
+                            <Type size={13} className="text-muted-foreground" />
+                            <span className="text-muted-foreground font-semibold">Nome para o cliente:</span>
+                            <Input
+                              type="text"
+                              placeholder={campName}
+                              value={customCampName}
+                              onChange={e => handleCampaignRename(campName, e.target.value)}
+                              className="h-8 text-xs bg-card flex-1"
+                            />
+                          </div>
+
                           <div className="flex items-center gap-1.5 text-xs">
-                            <span className="text-muted-foreground">Gasto R$:</span>
+                            <span className="text-muted-foreground font-medium">Gasto R$:</span>
                             <Input
                               type="number"
                               placeholder={rawSpent.toFixed(2)}
@@ -456,7 +484,7 @@ function Index() {
                             />
                           </div>
                           <div className="flex items-center gap-1.5 text-xs">
-                            <span className="text-muted-foreground">Cliques:</span>
+                            <span className="text-muted-foreground font-medium">Cliques:</span>
                             <Input
                               type="number"
                               placeholder={String(rawClicks)}
@@ -466,7 +494,7 @@ function Index() {
                             />
                           </div>
                           <div className="flex items-center gap-1.5 text-xs">
-                            <span className="text-muted-foreground">Conversas:</span>
+                            <span className="text-muted-foreground font-medium">Conversas:</span>
                             <Input
                               type="number"
                               placeholder={String(rawConversations)}
@@ -478,26 +506,49 @@ function Index() {
                         </div>
                       </div>
 
-                      {/* Grade de Criativos Pertencentes a esta Campanha */}
+                      {/* GRADE DE CRIATIVOS COM CAMPO DE TÍTULO CUSTOMIZADO */}
                       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {campAds.map(ad => (
-                          <div
-                            key={ad.id}
-                            className={`space-y-2 break-inside-avoid ${selectedAds.length && !selectedAds.includes(String(ad.id)) ? 'opacity-50 print:hidden' : ''}`}
-                          >
-                            <label className="flex items-center gap-2 text-xs font-medium print:hidden">
-                              <Checkbox checked={selectedAds.includes(String(ad.id))} onCheckedChange={() => toggleAd(String(ad.id))} />
-                              Escolher para o relatório
-                            </label>
-                            <CreativeCard
-                              ad={ad}
-                              showClicks={metrics.showClicks}
-                              showSpent={metrics.showSpent}
-                              showConversations={metrics.showConversations}
-                              showCardMetrics={showCardMetrics}
-                            />
-                          </div>
-                        ))}
+                        {campAds.map(ad => {
+                          const customTitle = adRenames[String(ad.id)] ?? '';
+                          const displayAd = {
+                            ...ad,
+                            title: customTitle || ad.title,
+                            campaign: customCampName || ad.campaign,
+                          };
+
+                          return (
+                            <div
+                              key={ad.id}
+                              className={`space-y-2 break-inside-avoid ${selectedAds.length && !selectedAds.includes(String(ad.id)) ? 'opacity-50 print:hidden' : ''}`}
+                            >
+                              <div className="flex items-center justify-between gap-2 text-xs font-medium print:hidden">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <Checkbox checked={selectedAds.includes(String(ad.id))} onCheckedChange={() => toggleAd(String(ad.id))} />
+                                  Escolher no relatório
+                                </label>
+                              </div>
+
+                              {/* Input sutil para renomear o anúncio para o cliente */}
+                              <div className="flex items-center gap-1.5 text-xs print:hidden">
+                                <Input
+                                  type="text"
+                                  placeholder={`Título cliente: ${ad.title}`}
+                                  value={customTitle}
+                                  onChange={e => handleAdRename(String(ad.id), e.target.value)}
+                                  className="h-7 text-[11px] bg-background/60"
+                                />
+                              </div>
+
+                              <CreativeCard
+                                ad={displayAd}
+                                showClicks={metrics.showClicks}
+                                showSpent={metrics.showSpent}
+                                showConversations={metrics.showConversations}
+                                showCardMetrics={showCardMetrics}
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
                     </section>
                   );
