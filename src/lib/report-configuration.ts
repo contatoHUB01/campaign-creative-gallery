@@ -102,16 +102,23 @@ export function projectSharedReport(ads: Ad[], configuration: ReportConfiguratio
     value: computeIndicator(indicator, realGlobal),
   }));
 
-  const totals = {
+  const vis = configuration.visibility;
+  const redact = <T extends { clicks: number; spent: number; conversations?: number | undefined }>(m: T): T => ({
+    ...m,
+    clicks: vis.clicks ? m.clicks : 0,
+    spent: vis.spent ? m.spent : 0,
+    conversations: vis.conversations ? (m.conversations ?? 0) : 0,
+  });
+
+  const totals: { custom?: typeof custom; clicks?: number; spent?: number; conversations?: number } = {
     ...(custom.length ? { custom } : {}),
-    clicks: realGlobal.clicks,
-    spent: realGlobal.spent,
-    conversations: realGlobal.conversations,
+    ...(vis.clicks ? { clicks: realGlobal.clicks } : {}),
+    ...(vis.spent ? { spent: realGlobal.spent } : {}),
+    ...(vis.conversations ? { conversations: realGlobal.conversations } : {}),
   };
 
   // Agrupamento por campanha com nomes amigáveis aplicados
   const campaignGroups: CampaignGroup[] = configuration.campaigns.map(campName => {
-    // Busca os anúncios associados a essa campanha (pelo nome original ou renomeado)
     const displayName = configuration.campaignRenames?.[campName]?.trim() || campName;
     const adsInCamp = selectedAds.filter(ad => ad.campaign === displayName || ad.campaign === campName);
     const override = configuration.campaignOverrides[campName];
@@ -123,21 +130,32 @@ export function projectSharedReport(ads: Ad[], configuration: ReportConfiguratio
     return {
       name: displayName,
       originalName: campName,
-      totals: {
+      totals: redact({
         clicks: override?.clicks ?? rawClicks,
         spent: override?.spend ?? override?.spent ?? rawSpent,
         conversations: override?.conversations ?? rawConversations,
-      },
-      ads: adsInCamp,
+      }),
+      ads: adsInCamp.map(redact),
       geoLocations: mergeGeo(adsInCamp.map(ad => ad.geo)),
     };
   }).filter(group => group.ads.length > 0);
 
+  // Remove ajustes manuais de métricas ocultas antes de serializar.
+  const overrides = {
+    ...(vis.clicks && configuration.overrides.clicks !== undefined ? { clicks: configuration.overrides.clicks } : {}),
+    ...(vis.spent && configuration.overrides.spent !== undefined ? { spent: configuration.overrides.spent } : {}),
+  };
+  const campaignOverrides = Object.fromEntries(Object.entries(configuration.campaignOverrides).map(([k, o]) => [k, {
+    ...(vis.clicks && o.clicks !== undefined ? { clicks: o.clicks } : {}),
+    ...(vis.spent && (o.spend ?? o.spent) !== undefined ? { spent: o.spend ?? o.spent } : {}),
+    ...(vis.conversations && o.conversations !== undefined ? { conversations: o.conversations } : {}),
+  }]));
+
   return {
-    ads: selectedAds,
+    ads: selectedAds.map(redact),
     campaignGroups,
     showCardMetrics: configuration.showCardMetrics,
     totals,
-    configuration,
+    configuration: { ...configuration, overrides, campaignOverrides },
   };
 }
