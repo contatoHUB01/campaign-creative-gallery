@@ -9,6 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
+import { CampaignGeoMap } from '@/components/campaign-geo-map';
+import { mergeGeo } from '@/lib/geo';
 import { CreativeCard } from '@/components/creative-card';
 import { currency, number } from '@/lib/ads';
 import { metaAdsQueryOptions, signedOutReport, buscarCriativosMeta, ACCOUNT_ID } from '@/lib/metaApi';
@@ -505,6 +507,8 @@ function Index() {
                           </div>
                         </div>
                       </div>
+
+                      <CampaignGeoMap geo={mergeGeo(campAds.map(ad => ad.geo))} />
 
                       {/* GRADE DE CRIATIVOS COM CAMPO DE TÍTULO CUSTOMIZADO */}
                       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

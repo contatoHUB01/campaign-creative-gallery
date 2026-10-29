@@ -5,6 +5,8 @@ import { LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity
 import { CreativeCard } from '@/components/creative-card';
 import { currency, number } from '@/lib/ads';
 import { getSharedCampaignReport } from '@/lib/reportLinks.functions';
+import { CampaignGeoMap } from '@/components/campaign-geo-map';
+import { mergeGeo } from '@/lib/geo';
 import type { CampaignGroup } from '@/lib/report-configuration';
 
 const sharedReportQuery = (token: string) => queryOptions({
@@ -164,6 +166,8 @@ function SharedCampaignReport() {
                   )}
                 </div>
               </div>
+
+              <CampaignGeoMap geo={group.geoLocations ?? mergeGeo(group.ads.map(ad => ad.geo))} />
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {group.ads.map(ad => (

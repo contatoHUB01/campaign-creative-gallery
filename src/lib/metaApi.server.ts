@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import type { Ad } from './ads';
+import { normalizeGeo } from './geo';
 
 const creativePage = z.object({
   data: z.array(z.object({
     id: z.string(), name: z.string().nullish(), status: z.string().nullish(),
     campaign: z.object({ name: z.string().nullish() }).nullish(),
+    adset: z.object({ targeting: z.object({ geo_locations: z.any().nullish(), excluded_geo_locations: z.any().nullish() }).passthrough().nullish() }).passthrough().nullish(),
     creative: z.object({ name: z.string().nullish(), body: z.string().nullish(), image_url: z.string().nullish(), thumbnail_url: z.string().nullish() }).nullish(),
     insights: z.object({ data: z.array(z.object({ clicks: z.union([z.string(), z.number()]).nullish(), spend: z.union([z.string(), z.number()]).nullish(), actions: z.array(z.object({ action_type: z.string(), value: z.union([z.string(), z.number()]).nullish() })).nullish() })) }).nullish(),
   })),
@@ -101,7 +103,7 @@ async function fetchMetaCreatives(accountId: string, accessToken: string, period
   let done = false;
   for (let page = 0; page < 10 && !done; page += 1) {
     const url = new URL(`https://graph.facebook.com/v19.0/act_${accountId}/ads`);
-    url.searchParams.set('fields', 'id,name,status,campaign{name},creative.thumbnail_width(600).thumbnail_height(600){name,image_url,thumbnail_url,body}');
+    url.searchParams.set('fields', 'id,name,status,campaign{name},adset{targeting{geo_locations,excluded_geo_locations}},creative.thumbnail_width(600).thumbnail_height(600){name,image_url,thumbnail_url,body}');
     url.searchParams.set('access_token', accessToken);
     url.searchParams.set('limit', '100');
     if (activeOnly) url.searchParams.set('effective_status', JSON.stringify(['ACTIVE']));
@@ -113,6 +115,7 @@ async function fetchMetaCreatives(accountId: string, accessToken: string, period
         id: item.id, campaign: item.campaign?.name || 'Sem campanha', title: item.name || item.creative?.name || 'Anúncio sem título',
         copy: item.creative?.body || 'Sem texto descritivo.', imageUrl: item.creative?.image_url || item.creative?.thumbnail_url || '',
         format: 'Meta Ads', ...nested, nested,
+        geo: normalizeGeo(item.adset?.targeting?.geo_locations, item.adset?.targeting?.excluded_geo_locations),
         status: item.status === 'ACTIVE' ? 'Ativo' as const : 'Pausado' as const,
       };
     }));
