@@ -13,6 +13,7 @@ export type Ad = {
   spent: number;
   conversations?: number;
   status: 'Ativo' | 'Pausado';
+  geo?: import('./geo').GeoTargeting;
 };
 
 export const ads: Ad[] = [
