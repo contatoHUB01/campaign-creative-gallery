@@ -5,7 +5,7 @@ import type { GeoTargeting } from '@/lib/geo';
 
 const LeafletMap = lazy(() => import('./campaign-geo-map-leaflet'));
 
-export function CampaignGeoMap({ geo }: { geo?: GeoTargeting }) {
+export function CampaignGeoMap({ geo }: { geo?: GeoTargeting | undefined }) {
   if (!geo) return null;
   const points = geo.customLocations ?? [];
   const included = geo.locationNames ?? [];

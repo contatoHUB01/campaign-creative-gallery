@@ -75,7 +75,7 @@ export type CampaignGroup = {
   originalName: string;
   totals: { clicks: number; spent: number; conversations: number };
   ads: Ad[];
-  geoLocations?: GeoTargeting;
+  geoLocations?: GeoTargeting | undefined;
 };
 
 export function projectSharedReport(ads: Ad[], configuration: ReportConfiguration) {
