@@ -1,3 +1,4 @@
+import { mergeGeo, type GeoTargeting } from './geo';
 import { z } from 'zod';
 import type { Ad } from './ads';
 
@@ -74,6 +75,7 @@ export type CampaignGroup = {
   originalName: string;
   totals: { clicks: number; spent: number; conversations: number };
   ads: Ad[];
+  geoLocations?: GeoTargeting | undefined;
 };
 
 export function projectSharedReport(ads: Ad[], configuration: ReportConfiguration) {
@@ -127,6 +129,7 @@ export function projectSharedReport(ads: Ad[], configuration: ReportConfiguratio
         conversations: override?.conversations ?? rawConversations,
       },
       ads: adsInCamp,
+      geoLocations: mergeGeo(adsInCamp.map(ad => ad.geo)),
     };
   }).filter(group => group.ads.length > 0);
 

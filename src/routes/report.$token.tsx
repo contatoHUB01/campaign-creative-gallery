@@ -5,6 +5,8 @@ import { LayoutGrid, MousePointer2, Wallet, CircleDollarSign, Sparkles, Infinity
 import { CreativeCard } from '@/components/creative-card';
 import { currency, number } from '@/lib/ads';
 import { getSharedCampaignReport } from '@/lib/reportLinks.functions';
+import { CampaignGeoMap } from '@/components/campaign-geo-map';
+import { mergeGeo } from '@/lib/geo';
 import type { CampaignGroup } from '@/lib/report-configuration';
 
 const sharedReportQuery = (token: string) => queryOptions({
@@ -66,17 +68,16 @@ function SharedCampaignReport() {
   const campaignGroups: CampaignGroup[] = (report as any).campaignGroups ?? Object.values(
     ads.reduce((acc, ad) => {
       const camp = ad.campaign || 'Campanha';
-      if (!acc[camp]) {
-        acc[camp] = {
-          name: camp,
-          totals: { clicks: 0, spent: 0, conversations: 0 },
-          ads: [],
-        };
-      }
-      acc[camp].ads.push(ad);
-      acc[camp].totals.clicks += ad.clicks;
-      acc[camp].totals.spent += ad.spent;
-      acc[camp].totals.conversations += ad.conversations ?? 0;
+      const group = acc[camp] ??= {
+        name: camp,
+        originalName: camp,
+        totals: { clicks: 0, spent: 0, conversations: 0 },
+        ads: [],
+      };
+      group.ads.push(ad);
+      group.totals.clicks += ad.clicks;
+      group.totals.spent += ad.spent;
+      group.totals.conversations += ad.conversations ?? 0;
       return acc;
     }, {} as Record<string, CampaignGroup>)
   );
@@ -164,6 +165,8 @@ function SharedCampaignReport() {
                   )}
                 </div>
               </div>
+
+              <CampaignGeoMap geo={group.geoLocations ?? mergeGeo(group.ads.map(ad => ad.geo))} />
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {group.ads.map(ad => (
