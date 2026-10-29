@@ -68,17 +68,16 @@ function SharedCampaignReport() {
   const campaignGroups: CampaignGroup[] = (report as any).campaignGroups ?? Object.values(
     ads.reduce((acc, ad) => {
       const camp = ad.campaign || 'Campanha';
-      if (!acc[camp]) {
-        acc[camp] = {
-          name: camp,
-          totals: { clicks: 0, spent: 0, conversations: 0 },
-          ads: [],
-        };
-      }
-      acc[camp].ads.push(ad);
-      acc[camp].totals.clicks += ad.clicks;
-      acc[camp].totals.spent += ad.spent;
-      acc[camp].totals.conversations += ad.conversations ?? 0;
+      const group = acc[camp] ??= {
+        name: camp,
+        originalName: camp,
+        totals: { clicks: 0, spent: 0, conversations: 0 },
+        ads: [],
+      };
+      group.ads.push(ad);
+      group.totals.clicks += ad.clicks;
+      group.totals.spent += ad.spent;
+      group.totals.conversations += ad.conversations ?? 0;
       return acc;
     }, {} as Record<string, CampaignGroup>)
   );
