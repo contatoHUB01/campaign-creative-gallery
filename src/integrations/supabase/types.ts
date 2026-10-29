@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       campaign_report_links: {
         Row: {
+          cached_at: string | null
+          cached_report: Json | null
           campaign_name: string
           configuration: Json
           created_at: string
@@ -29,6 +31,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cached_at?: string | null
+          cached_report?: Json | null
           campaign_name: string
           configuration?: Json
           created_at?: string
@@ -42,6 +46,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cached_at?: string | null
+          cached_report?: Json | null
           campaign_name?: string
           configuration?: Json
           created_at?: string
