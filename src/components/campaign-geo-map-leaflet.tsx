@@ -27,7 +27,7 @@ export default function LeafletMap({ points }: { points: NonNullable<GeoTargetin
         L.marker([p.lat, p.lng], { icon }).addTo(map!).bindTooltip(`Raio de ${p.radiusKm.toLocaleString('pt-BR')} km`);
         L.circle([p.lat, p.lng], { radius: p.radiusKm * 1000, color: '#2563eb', weight: 1.5, fillColor: '#3b82f6', fillOpacity: 0.2 }).addTo(map!);
       });
-      const bounds = L.latLngBounds(points.map(p => L.latLng(p.lat, p.lng).toBounds(p.radiusKm * 2000)));
+      const bounds = points.reduce((acc, p) => acc.extend(L.latLng(p.lat, p.lng).toBounds(p.radiusKm * 2000)), L.latLngBounds([]));
       const fit = () => { if (!map) return; map.invalidateSize(); if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 }); };
       fit();
       requestAnimationFrame(fit);
