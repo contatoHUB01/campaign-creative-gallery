@@ -12,6 +12,8 @@ export default function LeafletMap({ points }: { points: NonNullable<GeoTargetin
     void import('leaflet').then(({ default: L }) => {
       if (cancelled || !ref.current) return;
       map = L.map(ref.current, { scrollWheelZoom: false, attributionControl: true });
+      // A view must exist before circles can compute bounds (they project metres to pixels).
+      if (points[0]) map.setView([points[0].lat, points[0].lng], 12);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
       const color = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#004565';
       // SVG pin avoids Leaflet's default PNG icon paths, which break under Vite.
@@ -21,11 +23,12 @@ export default function LeafletMap({ points }: { points: NonNullable<GeoTargetin
         iconAnchor: [12, 32],
         html: `<svg width="24" height="32" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="${color}"/><circle cx="12" cy="12" r="4.5" fill="#fff"/></svg>`,
       });
-      const layers = points.map(p => {
+      points.forEach(p => {
         L.marker([p.lat, p.lng], { icon }).addTo(map!).bindTooltip(`Raio de ${p.radiusKm.toLocaleString('pt-BR')} km`);
-        return L.circle([p.lat, p.lng], { radius: p.radiusKm * 1000, color: '#2563eb', weight: 1.5, fillColor: '#3b82f6', fillOpacity: 0.2 }).addTo(map!);
+        L.circle([p.lat, p.lng], { radius: p.radiusKm * 1000, color: '#2563eb', weight: 1.5, fillColor: '#3b82f6', fillOpacity: 0.2 }).addTo(map!);
       });
-      const fit = () => { map!.invalidateSize(); map!.fitBounds(L.featureGroup(layers).getBounds(), { padding: [20, 20], maxZoom: 14 }); };
+      const bounds = L.latLngBounds(points.map(p => L.latLng(p.lat, p.lng).toBounds(p.radiusKm * 2000)));
+      const fit = () => { if (!map) return; map.invalidateSize(); if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 }); };
       fit();
       requestAnimationFrame(fit);
       observer = new ResizeObserver(() => map?.invalidateSize());
