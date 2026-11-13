@@ -103,6 +103,7 @@ function Index() {
   const [editing, setEditing] = useState<{ id: string; title: string } | null>(null);
 
   const { data: accountsData } = useQuery({ ...metaAccountsQueryOptions(), enabled: sessionState === 'in' });
+  const accountBalance = accountsData?.accounts.find(a => a.id === account)?.balanceLabel;
   const accountName = accountsData?.accounts.find(a => a.id === account)?.name ?? (account ? `Conta ${account}` : '');
   const ads = report.ads;
   const navigate = Route.useNavigate();
@@ -260,6 +261,7 @@ function Index() {
             <span className="hidden text-sm font-medium text-muted-foreground sm:block">Relatório de anúncios</span>
           </div>
           <div className="flex items-center gap-3">
+            {accountBalance && <span className="hidden whitespace-nowrap rounded-md bg-accent-brand/10 px-3 py-1.5 text-xs font-semibold text-foreground md:block" title="Saldo da conta de anúncios">{accountBalance}</span>}
             <Button variant="outline" size="sm" className="max-w-[220px]" onClick={() => setSwitchingAccount(true)} title="Trocar conta de anúncios">
               <span className="truncate">Conta: {accountName}</span><ChevronDown size={14} />
             </Button>

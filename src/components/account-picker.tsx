@@ -35,7 +35,7 @@ export function AccountPicker({ onPick, current }: Props) {
               <SelectItem key={a.id} value={a.id}>
                 <span className="flex items-center gap-2">
                   <Building2 size={15} className="shrink-0 text-primary" />
-                  <span className="font-medium">{a.name}</span>
+                  <span className="font-medium">{a.name}</span>{a.balanceLabel && <span className="ml-2 text-xs text-muted-foreground">{a.balanceLabel}</span>}
                   <span className="text-xs text-muted-foreground">{a.id}</span>
                   {!a.active && <span className="rounded bg-muted px-1.5 text-[10px] text-muted-foreground">Inativa</span>}
                 </span>
