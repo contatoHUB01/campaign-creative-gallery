@@ -136,7 +136,7 @@ function Index() {
     statuses: status === 'Todos' ? ['Ativo', 'Pausado'] : [status as 'Ativo' | 'Pausado'],
     period,
     filters: { q: '', sort: sort as 'recent' | 'clicks' | 'spent' },
-    visibility: { clicks: metrics.showClicks, spent: metrics.showSpent, conversations: metrics.showConversations },
+    visibility: { clicks: metrics.showClicks, spent: metrics.showSpent, conversations: metrics.showConversations, balance: metrics.showBalance },
     showCardMetrics,
     overrides: {
       ...(metrics.clicksOverride === '' ? {} : { clicks: Math.round(Number(metrics.clicksOverride)) }),
@@ -168,6 +168,7 @@ function Index() {
       showClicks: c.visibility.clicks,
       showSpent: c.visibility.spent,
       showConversations: c.visibility.conversations,
+      showBalance: c.visibility.balance ?? false,
       clicksOverride: c.overrides?.clicks?.toString() ?? '',
       spentOverride: c.overrides?.spent?.toString() ?? '',
       indicators: c.customIndicators ?? []

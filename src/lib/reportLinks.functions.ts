@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { setResponseHeader } from '@tanstack/react-start/server';
 import { z } from 'zod';
 import { requireSupabaseAuth } from '@/integrations/supabase/auth-middleware';
-import { readMetaCreatives, assertAccountAllowed } from './metaApi.server';
+import { readMetaCreatives, assertAccountAllowed, listMetaAdAccounts } from './metaApi.server';
 import type { MetaReport } from './metaApi.functions';
 import { accountIdSchema, LEGACY_ACCOUNT_ID, reportConfigurationSchema, parseSavedConfiguration, projectSharedReport, type ReportConfiguration } from './report-configuration';
 export type { ReportConfiguration } from './report-configuration';
@@ -17,7 +17,7 @@ export type CampaignReportLink = {
   createdAt: string;
   updatedAt: string;
 };
-export type SharedMetaReport = MetaReport & { title?: string; campaignName?: string; configuration?: ReportConfiguration; totals?: { clicks?: number; spent?: number; conversations?: number; custom?: Array<{ id: string; name: string; format: 'number' | 'currency' | 'percent'; value: number }> } };
+export type SharedMetaReport = MetaReport & { title?: string; campaignName?: string; configuration?: ReportConfiguration; totals?: { clicks?: number; spent?: number; conversations?: number; balance?: string; custom?: Array<{ id: string; name: string; format: 'number' | 'currency' | 'percent'; value: number }> } };
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
@@ -165,7 +165,10 @@ export const getSharedCampaignReport = createServerFn({ method: 'POST' })
       const configuration = parseSavedConfiguration(link.configuration, link.campaign_name);
       const projection = projectSharedReport(
         await readMetaCreatives(configuration.accountId ?? LEGACY_ACCOUNT_ID, accessToken, configuration.period),
-        configuration
+        configuration,
+        configuration.visibility.balance
+          ? (await listMetaAdAccounts(accessToken).catch(() => [])).find(a => a.id === (configuration.accountId ?? LEGACY_ACCOUNT_ID))?.balanceLabel
+          : undefined
       );
 
       const finalReport: SharedMetaReport = {

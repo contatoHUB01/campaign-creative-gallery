@@ -8,17 +8,17 @@ const metricLabels = { clicks: 'Cliques', spent: 'Investimento', conversations: 
 const selectClass = 'h-9 rounded-md border border-input bg-card px-2 text-xs';
 
 export type MetricsState = {
-  showClicks: boolean; showSpent: boolean; showConversations: boolean;
+  showClicks: boolean; showSpent: boolean; showConversations: boolean; showBalance: boolean;
   clicksOverride: string; spentOverride: string; indicators: CustomIndicator[];
 };
-export const defaultMetrics: MetricsState = { showClicks: true, showSpent: true, showConversations: true, clicksOverride: '', spentOverride: '', indicators: [] };
+export const defaultMetrics: MetricsState = { showClicks: true, showSpent: true, showConversations: true, showBalance: false, clicksOverride: '', spentOverride: '', indicators: [] };
 
 export function ReportMetricsPanel({ value, onChange }: { value: MetricsState; onChange: (next: MetricsState) => void }) {
   const set = (patch: Partial<MetricsState>) => onChange({ ...value, ...patch });
   const setIndicators = (fn: (list: CustomIndicator[]) => CustomIndicator[]) => set({ indicators: fn(value.indicators) });
   return <section aria-label="Métricas do relatório" className="mb-6 space-y-5 rounded-xl border border-border bg-card p-5">
     <fieldset><legend className="mb-3 text-xs font-semibold">Métricas visíveis no relatório</legend><div className="flex flex-wrap gap-3">
-      {([['showClicks', 'Cliques'], ['showSpent', 'Investimento'], ['showConversations', 'Conversas e custo por conversa']] as const).map(([key, label]) => <label key={key} className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs"><Checkbox checked={value[key]} onCheckedChange={v => set({ [key]: Boolean(v) })} />{label}</label>)}
+      {([['showClicks', 'Cliques'], ['showSpent', 'Investimento'], ['showConversations', 'Conversas e custo por conversa'], ['showBalance', 'Saldo da conta']] as const).map(([key, label]) => <label key={key} className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs"><Checkbox checked={value[key]} onCheckedChange={v => set({ [key]: Boolean(v) })} />{label}</label>)}
     </div></fieldset>
     <div><h3 className="text-xs font-semibold">Ajustes manuais dos totais</h3><p className="mt-1 text-xs text-muted-foreground">Em branco usa o valor real da Meta.</p><div className="mt-3 flex flex-wrap gap-4">
       <label className="text-xs">Total de cliques<Input type="number" min="0" value={value.clicksOverride} onChange={e => set({ clicksOverride: e.target.value })} placeholder="Valor real" className="mt-1 h-9 w-40" /></label>

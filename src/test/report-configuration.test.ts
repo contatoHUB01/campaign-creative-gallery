@@ -50,3 +50,10 @@ describe('Custom indicators', () => {
   it('divides metrics in a formula', () => { expect(computeIndicator({ id: 'b', name: 'CPA', format: 'currency', kind: 'formula', left: 'spent', operator: '/', right: 'conversations' }, totals)).toBe(25); });
   it('returns 0 when dividing by zero', () => { expect(computeIndicator({ id: 'c', name: 'X', format: 'number', kind: 'formula', left: 'spent', operator: '/', right: 'conversations' }, { ...totals, conversations: 0 })).toBe(0); });
 });
+
+describe('account balance visibility', () => {
+  it('omits balance unless the box is checked', () => {
+    expect(projectSharedReport([], configuration, 'Saldo disponível: R$ 892,20').totals.balance).toBeUndefined();
+    expect(projectSharedReport([], { ...configuration, visibility: { ...configuration.visibility, balance: true } }, 'Saldo disponível: R$ 892,20').totals.balance).toBe('Saldo disponível: R$ 892,20');
+  });
+});
