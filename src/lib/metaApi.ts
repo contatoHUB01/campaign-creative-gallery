@@ -1,8 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
-import { buscarCriativosMetaServer, type MetaReport } from './metaApi.functions';
+import { buscarCriativosMetaServer, listarContasMetaServer, type MetaReport } from './metaApi.functions';
 import { supabase } from '@/integrations/supabase/client';
 
-export const ACCOUNT_ID = '815749902379278';
 export const signedOutReport: MetaReport = { ads: [], connected: false, requiresLogin: true, error: 'Entre em uma sessão autorizada do projeto para consultar os criativos reais.' };
 
 export type Period = { since: string; until: string };
@@ -20,9 +19,20 @@ export async function buscarCriativosMeta(accountId: string, period?: Period, op
   }
 }
 
-export const metaAdsQueryOptions = (period?: Period, activeOnly = false) => queryOptions({
-  queryKey: ['metaAds', ACCOUNT_ID, period?.since ?? '', period?.until ?? '', activeOnly ? 'active' : 'all'],
-  queryFn: () => buscarCriativosMeta(ACCOUNT_ID, period, { activeOnly }),
+export const metaAccountsQueryOptions = () => queryOptions({
+  queryKey: ['metaAds', 'accounts'],
+  queryFn: async () => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return { accounts: [], error: null };
+    return listarContasMetaServer({ data: {} });
+  },
+  staleTime: 10 * 60 * 1000,
+  retry: false,
+});
+
+export const metaAdsQueryOptions = (accountId: string, period?: Period, activeOnly = false) => queryOptions({
+  queryKey: ['metaAds', accountId, period?.since ?? '', period?.until ?? '', activeOnly ? 'active' : 'all'],
+  queryFn: () => buscarCriativosMeta(accountId, period, { activeOnly }),
   staleTime: 15 * 60 * 1000,
   refetchOnMount: 'always',
   refetchOnWindowFocus: false,

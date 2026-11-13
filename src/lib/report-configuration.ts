@@ -34,7 +34,11 @@ export function computeIndicator(indicator: CustomIndicator, totals: Record<Base
   return Number.isFinite(scaled) ? scaled : 0;
 }
 
+export const LEGACY_ACCOUNT_ID = '815749902379278';
+export const accountIdSchema = z.string().regex(/^\d{5,25}$/, 'Conta de anúncios inválida.');
+
 export const reportConfigurationSchema = z.object({
+  accountId: accountIdSchema.optional(),
   campaigns: z.array(z.string().trim().min(1).max(300)).min(1).max(1000),
   adIds: z.array(z.string()).max(1000).default([]),
   statuses: z.array(z.enum(['Ativo', 'Pausado'])).min(1),
