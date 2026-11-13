@@ -139,7 +139,7 @@ const accountsPage = z.object({
 });
 function balanceLabel(a: { balance?: string | number | null | undefined; is_prepay_account?: boolean | null | undefined; currency?: string | null | undefined; funding_source_details?: { display_string?: string | null | undefined } | null | undefined }): string | undefined {
   const m = a.funding_source_details?.display_string?.match(/Saldo dispon[ií]vel\s*\(([^)]+)\)/i);
-  if (m) return `Saldo disponível: ${m[1].replace(/\s*[A-Z]{3}$/, '')}`;
+  if (m) return `Saldo disponível: ${(m[1] ?? "").replace(/\s*[A-Z]{3}$/, '')}`;
   const cents = Number(a.balance);
   if (a.balance == null || !Number.isFinite(cents)) return undefined;
   const v = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: a.currency || 'BRL' }).format(cents / 100);
