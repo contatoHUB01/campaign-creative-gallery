@@ -131,3 +131,35 @@ async function fetchMetaCreatives(accountId: string, accessToken: string, period
     return { ...ad, ...m };
   });
 }
+
+export type MetaAdAccount = { id: string; name: string; active: boolean; currency: string };
+const accountsPage = z.object({
+  data: z.array(z.object({ account_id: z.string(), name: z.string().nullish(), account_status: z.number().nullish(), currency: z.string().nullish() })),
+  paging: z.object({ next: z.string().optional() }).optional(),
+});
+let accountsCache: { at: number; rows: Promise<MetaAdAccount[]> } | null = null;
+
+/** Lists the ad accounts the workspace token can read; this list is the server-side allowlist. */
+export function listMetaAdAccounts(accessToken: string, fresh = false): Promise<MetaAdAccount[]> {
+  if (!fresh && accountsCache && Date.now() - accountsCache.at < 10 * 60 * 1000) return accountsCache.rows;
+  const rows = (async () => {
+    const out: MetaAdAccount[] = [];
+    let next: string | undefined = 'https://graph.facebook.com/v19.0/me/adaccounts?fields=account_id,name,account_status,currency&limit=100';
+    for (let i = 0; next && i < 10; i++) {
+      const res: Response = await fetch(next, { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(30000) });
+      if (!res.ok) throw new Error(`Meta respondeu ${res.status} ao listar contas.`);
+      const page = accountsPage.parse(await res.json());
+      out.push(...page.data.map(a => ({ id: a.account_id, name: a.name?.trim() || `Conta ${a.account_id}`, active: a.account_status === 1, currency: a.currency ?? 'BRL' })));
+      next = page.paging?.next;
+    }
+    return out.sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'pt-BR'));
+  })();
+  accountsCache = { at: Date.now(), rows };
+  rows.catch(() => { accountsCache = null; });
+  return rows;
+}
+
+export async function assertAccountAllowed(accessToken: string, accountId: string): Promise<void> {
+  const accounts = await listMetaAdAccounts(accessToken);
+  if (!accounts.some(a => a.id === accountId)) throw new Error('Esta conta de anúncios não está disponível.');
+}

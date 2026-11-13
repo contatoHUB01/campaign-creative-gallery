@@ -4,7 +4,6 @@ import { useServerFn } from '@tanstack/react-start';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { ACCOUNT_ID } from '@/lib/metaApi';
 import { createCampaignReportLink, issueCampaignReportLink, listCampaignReportLinks, revokeCampaignReportLink, updateCampaignReportLink, type CampaignReportLink, type ReportConfiguration } from '@/lib/reportLinks.functions';
 
 type Props = {
@@ -49,7 +48,7 @@ export function ReportLinkDialog({ configuration, editing, onEdit, onSaved }: Pr
         const current = (await listLinks()).find(l => l.id === editing.id);
         if (current?.token) setUrl(linkFor(current.token));
       } else {
-        const result = await createLink({ data: { accountId: ACCOUNT_ID, title, configuration } });
+        const result = await createLink({ data: { accountId: configuration.accountId ?? '', title, configuration } });
         onSaved({ id: result.id, title });
         setUrl(linkFor(result.token));
       }

@@ -2,12 +2,11 @@ import { createServerFn } from '@tanstack/react-start';
 import { setResponseHeader } from '@tanstack/react-start/server';
 import { z } from 'zod';
 import { requireSupabaseAuth } from '@/integrations/supabase/auth-middleware';
-import { readMetaCreatives } from './metaApi.server';
+import { readMetaCreatives, assertAccountAllowed } from './metaApi.server';
 import type { MetaReport } from './metaApi.functions';
-import { reportConfigurationSchema, parseSavedConfiguration, projectSharedReport, type ReportConfiguration } from './report-configuration';
+import { accountIdSchema, LEGACY_ACCOUNT_ID, reportConfigurationSchema, parseSavedConfiguration, projectSharedReport, type ReportConfiguration } from './report-configuration';
 export type { ReportConfiguration } from './report-configuration';
 
-const accountIdSchema = z.literal('815749902379278');
 export type CampaignReportLink = {
   id: string;
   title: string;
@@ -61,13 +60,16 @@ export const createCampaignReportLink = createServerFn({ method: 'POST' })
   }).parse(input))
   .handler(async ({ data, context }) => {
     setResponseHeader('Cache-Control', 'private, no-store');
+    const accessToken = process.env['META_ACCESS_TOKEN'];
+    if (!accessToken) throw new Error('O token privado da Meta ainda não foi configurado.');
+    await assertAccountAllowed(accessToken, data.accountId);
     const token = makeToken();
     const tokenHash = await hashToken(token);
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     const { data: created, error } = await supabaseAdmin.from('campaign_report_links').insert({
       title: data.title,
       campaign_name: data.configuration.campaigns[0] ?? 'Relatório',
-      configuration: data.configuration,
+      configuration: { ...data.configuration, accountId: data.accountId },
       token_hash: tokenHash,
       share_token: token,
       expires_at: null,
@@ -84,6 +86,11 @@ export const updateCampaignReportLink = createServerFn({ method: 'POST' })
   }).parse(input))
   .handler(async ({ data, context }) => {
     setResponseHeader('Cache-Control', 'private, no-store');
+    if (data.configuration.accountId) {
+      const accessToken = process.env['META_ACCESS_TOKEN'];
+      if (!accessToken) throw new Error('O token privado da Meta ainda não foi configurado.');
+      await assertAccountAllowed(accessToken, data.configuration.accountId);
+    }
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     const { data: updated, error } = await supabaseAdmin.from('campaign_report_links').update({
       title: data.title,
@@ -157,7 +164,7 @@ export const getSharedCampaignReport = createServerFn({ method: 'POST' })
     try {
       const configuration = parseSavedConfiguration(link.configuration, link.campaign_name);
       const projection = projectSharedReport(
-        await readMetaCreatives('815749902379278', accessToken, configuration.period),
+        await readMetaCreatives(configuration.accountId ?? LEGACY_ACCOUNT_ID, accessToken, configuration.period),
         configuration
       );
 
