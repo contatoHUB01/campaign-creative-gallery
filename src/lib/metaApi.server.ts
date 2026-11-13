@@ -137,7 +137,7 @@ const accountsPage = z.object({
   data: z.array(z.object({ account_id: z.string(), name: z.string().nullish(), account_status: z.number().nullish(), currency: z.string().nullish(), balance: z.union([z.string(), z.number()]).nullish(), is_prepay_account: z.boolean().nullish(), funding_source_details: z.object({ display_string: z.string().nullish() }).passthrough().nullish() })),
   paging: z.object({ next: z.string().optional() }).optional(),
 });
-function balanceLabel(a: { balance?: string | number | null; is_prepay_account?: boolean | null; currency?: string | null; funding_source_details?: { display_string?: string | null } | null }): string | undefined {
+function balanceLabel(a: { balance?: string | number | null | undefined; is_prepay_account?: boolean | null | undefined; currency?: string | null | undefined; funding_source_details?: { display_string?: string | null | undefined } | null | undefined }): string | undefined {
   const m = a.funding_source_details?.display_string?.match(/Saldo dispon[ií]vel\s*\(([^)]+)\)/i);
   if (m) return `Saldo disponível: ${m[1].replace(/\s*[A-Z]{3}$/, '')}`;
   const cents = Number(a.balance);
@@ -157,7 +157,7 @@ export function listMetaAdAccounts(accessToken: string, fresh = false): Promise<
       const res: Response = await fetch(next, { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(30000) });
       if (!res.ok) throw new Error(`Meta respondeu ${res.status} ao listar contas.`);
       const page = accountsPage.parse(await res.json());
-      out.push(...page.data.map(a => ({ id: a.account_id, name: a.name?.trim() || `Conta ${a.account_id}`, active: a.account_status === 1, currency: a.currency ?? 'BRL', balanceLabel: balanceLabel(a) })));
+      out.push(...page.data.map(a => ({ id: a.account_id, name: a.name?.trim() || `Conta ${a.account_id}`, active: a.account_status === 1, currency: a.currency ?? 'BRL', ...(balanceLabel(a) ? { balanceLabel: balanceLabel(a) as string } : {}) })));
       next = page.paging?.next;
     }
     return out.sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'pt-BR'));
