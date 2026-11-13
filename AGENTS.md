@@ -14,7 +14,7 @@
 - Render each ad through `CreativeCard`, with all shared visual tokens in `src/styles.css`, so card presentation remains consistent across filters.
 - Keep Meta credentials inside authenticated server functions and use `src/lib/metaApi.ts` for Query integration; this prevents exposing credentials or private report data to unauthenticated callers.
 - Read the ads endpoint with nested campaign, creative and insights fields and normalize metrics to finite numbers; creative content alone does not provide performance data.
-- Keep the Meta account input allowlisted in the authenticated server function and disable shared response caching; workspace credentials must not allow arbitrary account reads.
+- Allow only Meta ad accounts returned by the workspace token's /me/adaccounts list, checked in authenticated server functions; saved reports store their accountId (legacy rows fall back to the original account).
 - Keep one root auth transition subscriber and clear private report queries on sign-out; private data must not survive logout in the UI.
 - Sign-in uses email and password for existing accounts only (no self sign-up); report access is for authorized accounts.
 - Keep client report links revocable, non-expiring, owner-editable, and scoped server-side to their saved report configuration; never trust URL filters or expose stored token hashes.
