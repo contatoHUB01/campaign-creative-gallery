@@ -232,7 +232,7 @@ function Index() {
 
   if (!account) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-[820px] flex-col items-center justify-center px-6 py-12">
+      <main className="mx-auto flex min-h-screen max-w-[520px] flex-col items-center justify-center px-6 py-12">
         <img src={logo.url} alt="Criativa Marketing Digital" width={80} height={80} className="mb-4 size-20 rounded-full" />
         <h1 className="text-2xl font-bold">Selecione a conta de anúncios</h1>
         <p className="mb-6 mt-2 text-sm text-muted-foreground">Escolha de qual conta da Meta virão os dados do relatório.</p>
@@ -272,7 +272,7 @@ function Index() {
       </header>
 
       <Dialog open={switchingAccount} onOpenChange={setSwitchingAccount}>
-        <DialogContent className="max-h-[85vh] max-w-[760px] overflow-y-auto">
+        <DialogContent className="max-w-[520px]">
           <DialogHeader><DialogTitle>Trocar conta de anúncios</DialogTitle></DialogHeader>
           <AccountPicker onPick={pickAccount} current={account} />
         </DialogContent>
