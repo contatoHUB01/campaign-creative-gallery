@@ -13,7 +13,9 @@ import { CampaignGeoMap } from '@/components/campaign-geo-map';
 import { mergeGeo } from '@/lib/geo';
 import { CreativeCard } from '@/components/creative-card';
 import { currency, number } from '@/lib/ads';
-import { metaAdsQueryOptions, signedOutReport, buscarCriativosMeta, ACCOUNT_ID } from '@/lib/metaApi';
+import { metaAdsQueryOptions, metaAccountsQueryOptions, signedOutReport, buscarCriativosMeta } from '@/lib/metaApi';
+import { AccountPicker } from '@/components/account-picker';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MetaLogin } from '@/components/meta-login';
 import { supabase } from '@/integrations/supabase/client';
 import { ReportLinkDialog } from '@/components/report-link-dialog';
@@ -29,6 +31,7 @@ export const Route = createFileRoute('/')({
     }
   },
   validateSearch: (search: Record<string, unknown>) => ({
+    account: typeof search['account'] === 'string' && /^\d{5,25}$/.test(search['account']) ? search['account'] : typeof search['account'] === 'number' && Number.isSafeInteger(search['account']) ? String(search['account']) : '',
     status: search['status'] === 'Ativo' || search['status'] === 'Pausado' ? search['status'] : 'Todos',
     campaign: Array.isArray(search['campaign']) ? search['campaign'].filter((name): name is string => typeof name === 'string') : typeof search['campaign'] === 'string' && search['campaign'] !== 'Todas' ? [search['campaign']] : [] as string[],
     sort: search['sort'] === 'clicks' || search['sort'] === 'spent' ? search['sort'] : 'recent',
@@ -63,9 +66,10 @@ function ReportError() {
 }
 
 function Index() {
-  const { status, campaign, sort, since, until } = Route.useSearch();
+  const { account, status, campaign, sort, since, until } = Route.useSearch();
+  const [switchingAccount, setSwitchingAccount] = useState(false);
   const period = since && until && since <= until ? { since, until } : undefined;
-  const hasFilters = status !== 'Todos' || campaign.length > 0 || Boolean(since) || Boolean(until);
+  const hasFilters = Boolean(account) && (status !== 'Todos' || campaign.length > 0 || Boolean(since) || Boolean(until));
 
   const [sessionState, setSessionState] = useState<'checking' | 'in' | 'out'>('checking');
   useEffect(() => {
@@ -78,7 +82,7 @@ function Index() {
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
-  const adsQuery = metaAdsQueryOptions(period, status === 'Ativo');
+  const adsQuery = metaAdsQueryOptions(account, period, status === 'Ativo');
   const { data: report = signedOutReport, isFetching, isError, refetch } = useQuery({ ...adsQuery, enabled: hasFilters });
   const queryClient = useQueryClient();
 
@@ -86,7 +90,7 @@ function Index() {
     void queryClient.fetchQuery({
       ...adsQuery,
       staleTime: 0,
-      queryFn: () => buscarCriativosMeta(ACCOUNT_ID, period, { activeOnly: status === 'Ativo', fresh: true })
+      queryFn: () => buscarCriativosMeta(account, period, { activeOnly: status === 'Ativo', fresh: true })
     });
   };
 
@@ -98,8 +102,16 @@ function Index() {
   const [selectedAds, setSelectedAds] = useState<string[]>([]);
   const [editing, setEditing] = useState<{ id: string; title: string } | null>(null);
 
+  const { data: accountsData } = useQuery({ ...metaAccountsQueryOptions(), enabled: sessionState === 'in' });
+  const accountName = accountsData?.accounts.find(a => a.id === account)?.name ?? (account ? `Conta ${account}` : '');
   const ads = report.ads;
   const navigate = Route.useNavigate();
+  const pickAccount = (id: string) => {
+    setSwitchingAccount(false);
+    if (id === account) return;
+    setEditing(null); setSelectedAds([]); setCampaignOverrides({}); setCampaignRenames({}); setAdRenames({});
+    void navigate({ search: previous => ({ ...previous, account: id, campaign: [] }), replace: true });
+  };
   const setStatus = (status: string) => { void navigate({ search: previous => ({ ...previous, status }), replace: true }); };
   const setCampaign = (campaign: string[]) => { void navigate({ search: previous => ({ ...previous, campaign }), replace: true }); };
   const setSort = (sort: string) => { void navigate({ search: previous => ({ ...previous, sort }), replace: true }); };
@@ -117,6 +129,7 @@ function Index() {
   const reportCampaigns = campaign.length ? campaign : campaigns;
 
   const reportConfiguration: ReportConfiguration | null = report.connected && reportCampaigns.length ? {
+    accountId: account,
     campaigns: reportCampaigns,
     adIds: selectedAds.filter(id => visible.some(ad => String(ad.id) === id)),
     statuses: status === 'Todos' ? ['Ativo', 'Pausado'] : [status as 'Ativo' | 'Pausado'],
@@ -161,6 +174,7 @@ function Index() {
     void navigate({
       search: previous => ({
         ...previous,
+        account: c.accountId ?? '815749902379278',
         sort: c.filters.sort,
         campaign: c.campaigns,
         status: c.statuses.length === 1 ? (c.statuses[0] ?? 'Todos') : 'Todos',
@@ -216,6 +230,18 @@ function Index() {
     );
   }
 
+  if (!account) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-[820px] flex-col items-center justify-center px-6 py-12">
+        <img src={logo.url} alt="Criativa Marketing Digital" width={80} height={80} className="mb-4 size-20 rounded-full" />
+        <h1 className="text-2xl font-bold">Selecione a conta de anúncios</h1>
+        <p className="mb-6 mt-2 text-sm text-muted-foreground">Escolha de qual conta da Meta virão os dados do relatório.</p>
+        <AccountPicker onPick={pickAccount} />
+        <Button variant="ghost" size="sm" className="mt-6" onClick={() => { void supabase.auth.signOut(); }}>Sair</Button>
+      </main>
+    );
+  }
+
   function exportReport() {
     const previous = document.title;
     document.title = (editing?.title ?? 'relatorio-criativos').replace(/[^\w\-]+/g, '_');
@@ -234,6 +260,9 @@ function Index() {
             <span className="hidden text-sm font-medium text-muted-foreground sm:block">Relatório de anúncios</span>
           </div>
           <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" className="max-w-[220px]" onClick={() => setSwitchingAccount(true)} title="Trocar conta de anúncios">
+              <span className="truncate">Conta: {accountName}</span><ChevronDown size={14} />
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => { void supabase.auth.signOut(); }}>Sair</Button>
             <div className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium">
               <MetaIcon className="text-primary" size={21} />Meta Ads
@@ -241,6 +270,13 @@ function Index() {
           </div>
         </div>
       </header>
+
+      <Dialog open={switchingAccount} onOpenChange={setSwitchingAccount}>
+        <DialogContent className="max-h-[85vh] max-w-[760px] overflow-y-auto">
+          <DialogHeader><DialogTitle>Trocar conta de anúncios</DialogTitle></DialogHeader>
+          <AccountPicker onPick={pickAccount} current={account} />
+        </DialogContent>
+      </Dialog>
 
       <main className="mx-auto max-w-[1240px] px-6 pb-16 pt-9 sm:px-10 sm:pt-11">
         <div className="flex flex-wrap items-center justify-between gap-5">
