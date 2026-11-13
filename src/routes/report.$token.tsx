@@ -63,6 +63,7 @@ function SharedCampaignReport() {
   const showClicks = report.configuration?.visibility?.clicks ?? true;
   const showSpent = report.configuration?.visibility?.spent ?? true;
   const showConversations = report.configuration?.visibility?.conversations ?? false;
+  const balance = report.totals?.balance;
   const showCardMetrics = (report as any).showCardMetrics ?? true;
 
   const campaignGroups: CampaignGroup[] = (report as any).campaignGroups ?? Object.values(
@@ -114,6 +115,7 @@ function SharedCampaignReport() {
             ...(showClicks && showSpent ? [{ label: 'Custo por clique', value: currency(clicks ? spent / clicks : 0), icon: CircleDollarSign, note: 'Média geral' }] : []),
             ...(showConversations ? [{ label: 'Conversas iniciadas', value: number(conversations), icon: MessageCircle, note: 'Total de conversas' }] : []),
             ...(showConversations && showSpent ? [{ label: 'Custo por conversa', value: currency(conversations ? spent / conversations : 0), icon: CircleDollarSign, note: 'Investimento ÷ conversas' }] : []),
+            ...(balance ? [{ label: balance.split(':')[0] ?? 'Saldo', value: balance.split(':').slice(1).join(':').trim(), icon: Wallet, note: 'Saldo da conta de anúncios' }] : []),
             ...(report.totals?.custom ?? []).map(indicator => ({
               label: indicator.name,
               value: indicator.format === 'currency' ? currency(indicator.value) : indicator.format === 'percent' ? `${number(Math.round(indicator.value * 100) / 100)}%` : number(indicator.value),

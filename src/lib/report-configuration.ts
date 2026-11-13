@@ -44,7 +44,7 @@ export const reportConfigurationSchema = z.object({
   statuses: z.array(z.enum(['Ativo', 'Pausado'])).min(1),
   period: z.object({ since: z.string().date(), until: z.string().date() }).refine(period => period.since <= period.until, 'A data final deve ser posterior à inicial.').optional(),
   filters: z.object({ q: z.string().max(200).default(''), sort: z.enum(['recent', 'clicks', 'spent']).default('recent') }),
-  visibility: z.object({ clicks: z.boolean(), spent: z.boolean(), conversations: z.boolean().default(false) }),
+  visibility: z.object({ clicks: z.boolean(), spent: z.boolean(), conversations: z.boolean().default(false), balance: z.boolean().default(false) }),
   showCardMetrics: z.boolean().default(true),
   overrides: z.object({ clicks: z.number().finite().int().nonnegative().optional(), spent: z.number().finite().nonnegative().optional() }).default({}),
   campaignOverrides: z.record(z.string(), campaignOverrideSchema).default({}),
@@ -82,7 +82,7 @@ export type CampaignGroup = {
   geoLocations?: GeoTargeting | undefined;
 };
 
-export function projectSharedReport(ads: Ad[], configuration: ReportConfiguration) {
+export function projectSharedReport(ads: Ad[], configuration: ReportConfiguration, balanceLabel?: string) {
   const campaignAds = ads.filter(ad => configuration.campaigns.includes(ad.campaign));
   
   // Aplica renomeação nos anúncios se houver nome personalizado definido
@@ -114,7 +114,8 @@ export function projectSharedReport(ads: Ad[], configuration: ReportConfiguratio
     conversations: vis.conversations ? (m.conversations ?? 0) : 0,
   });
 
-  const totals: { custom?: typeof custom; clicks?: number; spent?: number; conversations?: number } = {
+  const totals: { custom?: typeof custom; clicks?: number; spent?: number; conversations?: number; balance?: string } = {
+    ...(vis.balance && balanceLabel ? { balance: balanceLabel } : {}),
     ...(custom.length ? { custom } : {}),
     ...(vis.clicks ? { clicks: realGlobal.clicks } : {}),
     ...(vis.spent ? { spent: realGlobal.spent } : {}),
