@@ -45,6 +45,7 @@ export default function LeafletMap({ points, areas = [] }: { points: NonNullable
         L.circle([p.lat, p.lng], { radius: p.radiusKm * 1000, color: '#2563eb', weight: 1.5, fillColor: '#3b82f6', fillOpacity: 0.2 }).addTo(map!);
       });
       const bounds = points.reduce((acc, p) => acc.extend(L.latLng(p.lat, p.lng).toBounds(p.radiusKm * 2000)), L.latLngBounds([]));
+      const fit = () => { if (!map) return; map.invalidateSize(); if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 }); };
       void (async () => {
         for (const name of areas.slice(0, 15)) {
           const found = await findArea(name);
@@ -58,7 +59,6 @@ export default function LeafletMap({ points, areas = [] }: { points: NonNullable
           fit();
         }
       })();
-      const fit = () => { if (!map) return; map.invalidateSize(); if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 }); };
       fit();
       requestAnimationFrame(fit);
       observer = new ResizeObserver(() => map?.invalidateSize());
