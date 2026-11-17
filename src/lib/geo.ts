@@ -2,11 +2,17 @@
 export type GeoTargeting = {
   customLocations?: Array<{ lat: number; lng: number; radiusKm: number }>;
   locationNames?: string[];
+  /** Named areas (neighbourhoods, cities, regions, zips) without coordinates from Meta; geocoded in the browser. */
+  areaNames?: string[];
   excludedNames?: string[];
 };
 
 type RawLoc = { latitude?: number | string; longitude?: number | string; radius?: number | string; distance_unit?: string; name?: string; address_string?: string };
 type RawGeo = { custom_locations?: RawLoc[]; cities?: RawLoc[]; subcities?: RawLoc[]; neighborhoods?: RawLoc[]; regions?: RawLoc[]; countries?: string[]; zips?: RawLoc[] } | null | undefined;
+
+const areas = (g: RawGeo) => [
+  ...(g?.neighborhoods ?? []), ...(g?.subcities ?? []), ...(g?.cities ?? []), ...(g?.regions ?? []), ...(g?.zips ?? []),
+].map(l => l.name?.trim()).filter((n): n is string => Boolean(n));
 
 const names = (g: RawGeo) => [
   ...(g?.neighborhoods ?? []), ...(g?.subcities ?? []), ...(g?.cities ?? []), ...(g?.regions ?? []), ...(g?.zips ?? []),
@@ -21,19 +27,27 @@ export function normalizeGeo(include: RawGeo, exclude: RawGeo): GeoTargeting | u
     return [{ lat, lng, radiusKm: Math.round(radiusKm * 100) / 100 }];
   });
   const customNames = (include?.custom_locations ?? []).map(l => l.name || l.address_string).filter((n): n is string => Boolean(n));
-  const geo: GeoTargeting = { customLocations, locationNames: [...names(include), ...customNames], excludedNames: [...names(exclude), ...(exclude?.custom_locations ?? []).map(l => l.name || l.address_string).filter((n): n is string => Boolean(n))] };
+  const areaNames = areas(include);
+  const geo: GeoTargeting = { customLocations, areaNames, locationNames: [...names(include), ...customNames], excludedNames: [...names(exclude), ...(exclude?.custom_locations ?? []).map(l => l.name || l.address_string).filter((n): n is string => Boolean(n))] };
   return customLocations.length || geo.locationNames!.length || geo.excludedNames!.length ? geo : undefined;
 }
 
 /** Merges geo targeting of many ads (e.g. one campaign) without duplicates. */
 export function mergeGeo(list: Array<GeoTargeting | undefined>): GeoTargeting | undefined {
   const pins = new Map<string, { lat: number; lng: number; radiusKm: number }>();
-  const inc = new Set<string>(), exc = new Set<string>();
+  const inc = new Set<string>(), exc = new Set<string>(), area = new Set<string>();
   for (const g of list) {
     g?.customLocations?.forEach(p => pins.set(`${p.lat},${p.lng},${p.radiusKm}`, p));
     g?.locationNames?.forEach(n => inc.add(n));
+    g?.areaNames?.forEach(n => area.add(n));
     g?.excludedNames?.forEach(n => exc.add(n));
   }
   if (!pins.size && !inc.size && !exc.size) return undefined;
-  return { customLocations: [...pins.values()], locationNames: [...inc], excludedNames: [...exc] };
+  return { customLocations: [...pins.values()], areaNames: [...area], locationNames: [...inc], excludedNames: [...exc] };
+}
+
+/** Names to place on the map by search; older saved reports lack areaNames, so fall back to listed names when there are no pins. */
+export function namesToGeocode(geo: GeoTargeting): string[] {
+  if (geo.areaNames) return geo.areaNames;
+  return (geo.customLocations?.length ? [] : geo.locationNames ?? []).filter(n => n.length > 2);
 }

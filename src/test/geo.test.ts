@@ -15,3 +15,14 @@ describe('geo targeting', () => {
     expect(mergeGeo([{ customLocations: [pin] }, { customLocations: [pin] }])?.customLocations).toHaveLength(1);
   });
 });
+
+describe('named areas on the map', () => {
+  it('keeps neighbourhoods for map search and leaves pins untouched', async () => {
+    const { namesToGeocode } = await import('@/lib/geo');
+    const geo = normalizeGeo({ neighborhoods: [{ name: 'Jardim Ângela' }], countries: ['BR'] }, null)!;
+    expect(namesToGeocode(geo)).toEqual(['Jardim Ângela']);
+    const pinned = normalizeGeo({ custom_locations: [{ latitude: 1, longitude: 2, radius: 3, name: 'Loja' }] }, null)!;
+    expect(namesToGeocode(pinned)).toEqual([]);
+    expect(pinned.customLocations).toHaveLength(1);
+  });
+});

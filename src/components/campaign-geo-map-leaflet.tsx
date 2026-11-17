@@ -2,7 +2,24 @@ import { useEffect, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
 import type { GeoTargeting } from '@/lib/geo';
 
-export default function LeafletMap({ points }: { points: NonNullable<GeoTargeting['customLocations']> }) {
+type Found = { lat: number; lng: number; geojson?: GeoJSON.GeoJsonObject };
+const CACHE_KEY = 'geo-area-cache-v1';
+
+/** Finds a named area on OpenStreetMap (Nominatim); results are kept in the browser to avoid repeat searches. */
+async function findArea(name: string): Promise<Found | null> {
+  let cache: Record<string, Found | null> = {};
+  try { cache = JSON.parse(localStorage.getItem(CACHE_KEY) ?? '{}'); } catch { /* ignore */ }
+  if (name in cache) return cache[name] ?? null;
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&polygon_geojson=1&polygon_threshold=0.001&countrycodes=br&accept-language=pt-BR&q=${encodeURIComponent(name)}`;
+  const res = await fetch(url).catch(() => null);
+  if (!res?.ok) return null; // not cached: try again next time
+  const [hit] = (await res.json()) as Array<{ lat: string; lon: string; geojson?: GeoJSON.GeoJsonObject }>;
+  const found = hit ? { lat: Number(hit.lat), lng: Number(hit.lon), ...(hit.geojson && hit.geojson.type !== 'Point' ? { geojson: hit.geojson } : {}) } : null;
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ...cache, [name]: found })); } catch { /* storage full */ }
+  return found;
+}
+
+export default function LeafletMap({ points, areas = [] }: { points: NonNullable<GeoTargeting['customLocations']>; areas?: string[] }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!ref.current || typeof window === 'undefined') return;
@@ -13,7 +30,7 @@ export default function LeafletMap({ points }: { points: NonNullable<GeoTargetin
       if (cancelled || !ref.current) return;
       map = L.map(ref.current, { scrollWheelZoom: false, attributionControl: true });
       // A view must exist before circles can compute bounds (they project metres to pixels).
-      if (points[0]) map.setView([points[0].lat, points[0].lng], 12);
+      map.setView(points[0] ? [points[0].lat, points[0].lng] : [-14.2, -51.9], points[0] ? 12 : 4);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
       const color = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#004565';
       // SVG pin avoids Leaflet's default PNG icon paths, which break under Vite.
@@ -28,6 +45,19 @@ export default function LeafletMap({ points }: { points: NonNullable<GeoTargetin
         L.circle([p.lat, p.lng], { radius: p.radiusKm * 1000, color: '#2563eb', weight: 1.5, fillColor: '#3b82f6', fillOpacity: 0.2 }).addTo(map!);
       });
       const bounds = points.reduce((acc, p) => acc.extend(L.latLng(p.lat, p.lng).toBounds(p.radiusKm * 2000)), L.latLngBounds([]));
+      void (async () => {
+        for (const name of areas.slice(0, 15)) {
+          const found = await findArea(name);
+          if (cancelled || !map) return;
+          if (!found || !Number.isFinite(found.lat)) continue;
+          L.marker([found.lat, found.lng], { icon }).addTo(map).bindTooltip(name);
+          if (found.geojson) {
+            const layer = L.geoJSON(found.geojson as never, { style: { color: '#2563eb', weight: 1.5, fillColor: '#3b82f6', fillOpacity: 0.2 } }).addTo(map);
+            bounds.extend(layer.getBounds());
+          } else bounds.extend(L.latLng(found.lat, found.lng).toBounds(3000));
+          fit();
+        }
+      })();
       const fit = () => { if (!map) return; map.invalidateSize(); if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 }); };
       fit();
       requestAnimationFrame(fit);
@@ -35,6 +65,6 @@ export default function LeafletMap({ points }: { points: NonNullable<GeoTargetin
       observer.observe(ref.current);
     });
     return () => { cancelled = true; observer?.disconnect(); map?.remove(); };
-  }, [points]);
+  }, [points, areas.join('|')]);
   return <div ref={ref} className="relative z-0 h-64 w-full overflow-hidden rounded-lg border border-border" aria-label="Mapa da área de cobertura" />;
 }
